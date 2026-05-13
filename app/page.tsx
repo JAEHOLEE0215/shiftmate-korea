@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppTabs, type AppTab } from "@/components/AppTabs";
+import { DailyCheckIn } from "@/components/DailyCheckIn";
 import { GuidePanel } from "@/components/GuidePanel";
 import { HandoverPanel } from "@/components/HandoverPanel";
 import { OptionButton } from "@/components/OptionButton";
+import { RecentRecords } from "@/components/RecentRecords";
 import { RoutineResult } from "@/components/RoutineResult";
 import { Section } from "@/components/Section";
 import { SideHustlePanel } from "@/components/SideHustlePanel";
@@ -12,15 +14,23 @@ import { SummaryDashboard } from "@/components/SummaryDashboard";
 import { WeeklySchedule } from "@/components/WeeklySchedule";
 import {
   createInputForShift,
+  createDailyRecord,
   createRoutine,
   createWeeklySummary,
   defaultWeeklySchedule,
   formatWeeklySummaryText,
   defaultInput,
+  defaultChecklist,
   formatRoutineText,
+  getLocalDateKey,
+  getRecentRecords,
   getShiftShortLabel,
   getTodayWeekdayIndex,
   shiftPresets,
+  calculateCompletionRate,
+  type ConditionType,
+  type DailyChecklist,
+  type DailyRecords,
   type GoalType,
   type PatternType,
   type RoutineInput,
@@ -34,6 +44,7 @@ import {
 const storageKey = "shiftmate-korea-routine";
 const weeklyStorageKey = "shiftmate-korea-weekly-schedule";
 const customTemplateStorageKey = "shiftmate-korea-custom-shift-template";
+const dailyRecordsStorageKey = "shiftmate-korea-daily-records";
 
 const shifts: Array<{ value: ShiftType; label: ShiftType; subLabel: string }> = [
   { value: "D", label: "D", subLabel: "주간" },
@@ -86,6 +97,11 @@ export default function Home() {
   const [todayIndex, setTodayIndex] = useState(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [weeklySaved, setWeeklySaved] = useState(false);
+  const [dailyRecords, setDailyRecords] = useState<DailyRecords>({});
+  const [todayDateKey, setTodayDateKey] = useState("");
+  const [condition, setCondition] = useState<ConditionType>("보통");
+  const [conditionMemo, setConditionMemo] = useState("");
+  const [checklist, setChecklist] = useState<DailyChecklist>(defaultChecklist);
   const [copied, setCopied] = useState(false);
   const result = useMemo(() => createRoutine(input), [input]);
   const weeklySummary = useMemo(
@@ -98,6 +114,8 @@ export default function Home() {
   );
   const selectedDay = weekdayLabels[selectedDayIndex];
   const todayDay = weekdayLabels[todayIndex];
+  const completionRate = calculateCompletionRate(checklist);
+  const recentRecords = useMemo(() => getRecentRecords(dailyRecords), [dailyRecords]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
@@ -116,8 +134,10 @@ export default function Home() {
 
   useEffect(() => {
     const browserTodayIndex = getTodayWeekdayIndex();
+    const dateKey = getLocalDateKey();
     setTodayIndex(browserTodayIndex);
     setSelectedDayIndex(browserTodayIndex);
+    setTodayDateKey(dateKey);
 
     const savedWeekly = window.localStorage.getItem(weeklyStorageKey);
     if (savedWeekly) {
@@ -139,6 +159,22 @@ export default function Home() {
         window.localStorage.removeItem(customTemplateStorageKey);
       }
     }
+
+    const savedDailyRecords = window.localStorage.getItem(dailyRecordsStorageKey);
+    if (savedDailyRecords) {
+      try {
+        const parsedRecords = JSON.parse(savedDailyRecords) as DailyRecords;
+        setDailyRecords(parsedRecords);
+        const todayRecord = parsedRecords[dateKey];
+        if (todayRecord) {
+          setCondition(todayRecord.condition);
+          setConditionMemo(todayRecord.memo);
+          setChecklist({ ...defaultChecklist, ...todayRecord.checklist });
+        }
+      } catch {
+        window.localStorage.removeItem(dailyRecordsStorageKey);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -149,6 +185,24 @@ export default function Home() {
   useEffect(() => {
     window.localStorage.setItem(customTemplateStorageKey, JSON.stringify(customTemplate));
   }, [customTemplate]);
+
+  useEffect(() => {
+    if (!todayDateKey) return;
+    const record = createDailyRecord({
+      date: todayDateKey,
+      dayLabel: todayDay.short,
+      shiftType: input.shiftType,
+      condition,
+      memo: conditionMemo,
+      checklist,
+      sideHustleMinutes: result.sideHustleTime.minutes,
+    });
+    setDailyRecords((current) => {
+      const next = { ...current, [todayDateKey]: record };
+      window.localStorage.setItem(dailyRecordsStorageKey, JSON.stringify(next));
+      return next;
+    });
+  }, [todayDateKey, todayDay.short, input.shiftType, condition, conditionMemo, checklist, result.sideHustleTime.minutes]);
 
   useEffect(() => {
     if (!copied) return;
@@ -195,6 +249,14 @@ export default function Home() {
     setInput((current) => createInputForShift(current, todayShift, customTemplate));
   }
 
+  function resetDailyRecords() {
+    setDailyRecords({});
+    setCondition("보통");
+    setConditionMemo("");
+    setChecklist(defaultChecklist);
+    window.localStorage.removeItem(dailyRecordsStorageKey);
+  }
+
   async function copyRoutine() {
     await navigator.clipboard.writeText(formatRoutineText(input, result, weeklySummaryText));
     setCopied(true);
@@ -232,6 +294,9 @@ export default function Home() {
         selectedDayLabel={selectedDay.full}
         selectedIsToday={selectedDayIndex === todayIndex}
         weeklySchedule={weeklySchedule}
+        condition={condition}
+        completionRate={completionRate}
+        hasRecentRecords={recentRecords.length > 0}
       />
 
       <AppTabs activeTab={activeTab} onChange={setActiveTab} />
@@ -248,6 +313,15 @@ export default function Home() {
           showWorkTimeSettings={showWorkTimeSettings}
           setShowWorkTimeSettings={setShowWorkTimeSettings}
         >
+          <DailyCheckIn
+            condition={condition}
+            memo={conditionMemo}
+            checklist={checklist}
+            completionRate={completionRate}
+            onConditionChange={setCondition}
+            onMemoChange={setConditionMemo}
+            onChecklistChange={setChecklist}
+          />
           <RoutineResult
             input={input}
             result={result}
@@ -257,6 +331,7 @@ export default function Home() {
             isTodaySelected={selectedDayIndex === todayIndex}
             weeklySummaryText={weeklySummaryText}
           />
+          <RecentRecords records={recentRecords} onReset={resetDailyRecords} />
         </TodayRoutinePanel>
       ) : null}
 
@@ -274,7 +349,7 @@ export default function Home() {
       ) : null}
 
       {activeTab === "sideHustle" ? (
-        <SideHustlePanel result={result} weeklySummary={weeklySummary} />
+        <SideHustlePanel result={result} weeklySummary={weeklySummary} condition={condition} />
       ) : null}
 
       {activeTab === "handover" ? (

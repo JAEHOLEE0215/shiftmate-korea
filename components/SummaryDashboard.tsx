@@ -10,6 +10,9 @@ type SummaryDashboardProps = {
   selectedDayLabel: string;
   selectedIsToday: boolean;
   weeklySchedule: WeeklySchedule;
+  condition: string;
+  completionRate: number;
+  hasRecentRecords: boolean;
 };
 
 export function SummaryDashboard({
@@ -19,6 +22,9 @@ export function SummaryDashboard({
   selectedDayLabel,
   selectedIsToday,
   weeklySchedule,
+  condition,
+  completionRate,
+  hasRecentRecords,
 }: SummaryDashboardProps) {
   const todayLabel = weekdayLabels.find((day) => day.key === todayKey)?.full ?? "오늘";
 
@@ -47,6 +53,8 @@ export function SummaryDashboard({
           helper={result.sideHustleTime.workType}
         />
         <DashboardItem label="권장 모드" value={result.recommendedMode} helper="회복과 성장 균형 확인" />
+        <DashboardItem label="컨디션" value={condition} helper={hasRecentRecords ? "최근 기록 있음" : "오늘 기록부터 시작"} />
+        <DashboardItem label="완료율" value={`${completionRate}%`} helper="오늘 체크리스트 기준" />
       </div>
       <div className="mt-4 rounded-lg bg-leaf/10 p-3">
         <p className="break-keep text-sm font-bold leading-6 text-leaf">

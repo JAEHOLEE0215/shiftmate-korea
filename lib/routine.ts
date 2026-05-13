@@ -76,6 +76,47 @@ export type WeeklySummary = {
   sideHustleHoursMax: number;
 };
 
+export type ConditionType = "좋음" | "보통" | "피곤함" | "매우 피곤함";
+export type ChecklistKey = "recovery" | "meal" | "movement" | "focus" | "prep";
+
+export type DailyChecklist = Record<ChecklistKey, boolean>;
+
+export type DailyRecord = {
+  date: string;
+  dayLabel: string;
+  shiftType: ShiftType;
+  condition: ConditionType;
+  memo: string;
+  checklist: DailyChecklist;
+  completionRate: number;
+  sideHustleMinutes: number;
+};
+
+export type DailyRecords = Record<string, DailyRecord>;
+
+export const defaultChecklist: DailyChecklist = {
+  recovery: false,
+  meal: false,
+  movement: false,
+  focus: false,
+  prep: false,
+};
+
+export const checklistItems: Array<{ key: ChecklistKey; label: string }> = [
+  { key: "recovery", label: "수면/회복 블록 확보" },
+  { key: "meal", label: "식사/수분 챙김" },
+  { key: "movement", label: "운동 또는 가벼운 몸풀기" },
+  { key: "focus", label: "공부 또는 부업 1개" },
+  { key: "prep", label: "다음 근무 준비" },
+];
+
+export const conditionMessages: Record<ConditionType, string> = {
+  좋음: "오늘은 짧은 집중 작업 1개를 넣어도 괜찮습니다.",
+  보통: "회복과 목표 활동을 균형 있게 나눠보세요.",
+  피곤함: "긴 작업보다 15~30분짜리 작은 작업을 추천합니다.",
+  "매우 피곤함": "오늘은 회복을 먼저 두고, 부업은 메모 정도로 줄이세요.",
+};
+
 export const weekdayLabels: Array<{ key: WeekdayKey; short: string; full: string }> = [
   { key: "mon", short: "월", full: "월요일" },
   { key: "tue", short: "화", full: "화요일" },
@@ -246,6 +287,60 @@ export function getShiftShortLabel(shiftType: ShiftType) {
 export function getTodayWeekdayIndex(date = new Date()) {
   const day = date.getDay();
   return day === 0 ? 6 : day - 1;
+}
+
+export function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function createDailyRecord({
+  date,
+  dayLabel,
+  shiftType,
+  condition,
+  memo,
+  checklist,
+  sideHustleMinutes,
+}: {
+  date: string;
+  dayLabel: string;
+  shiftType: ShiftType;
+  condition: ConditionType;
+  memo: string;
+  checklist: DailyChecklist;
+  sideHustleMinutes: number;
+}): DailyRecord {
+  return {
+    date,
+    dayLabel,
+    shiftType,
+    condition,
+    memo,
+    checklist,
+    completionRate: calculateCompletionRate(checklist),
+    sideHustleMinutes,
+  };
+}
+
+export function calculateCompletionRate(checklist: DailyChecklist) {
+  const done = Object.values(checklist).filter(Boolean).length;
+  return Math.round((done / checklistItems.length) * 100);
+}
+
+export function completionMessage(completionRate: number) {
+  const doneCount = Math.round((completionRate / 100) * checklistItems.length);
+  if (doneCount <= 1) return "오늘은 하나만 끝내도 충분합니다.";
+  if (doneCount <= 3) return "좋아요. 핵심 루틴은 어느 정도 챙겼습니다.";
+  return "오늘 루틴을 잘 지켰습니다. 무리하지 말고 마무리하세요.";
+}
+
+export function getRecentRecords(records: DailyRecords, limit = 7) {
+  return Object.values(records)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit);
 }
 
 export function createWeeklySummary(

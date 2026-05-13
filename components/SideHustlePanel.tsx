@@ -1,14 +1,17 @@
 "use client";
 
 import type { RoutineResult, WeeklySummary } from "@/lib/routine";
+import { type ConditionType } from "@/lib/routine";
 
 type SideHustlePanelProps = {
   result: RoutineResult;
   weeklySummary: WeeklySummary;
+  condition: ConditionType;
 };
 
-export function SideHustlePanel({ result, weeklySummary }: SideHustlePanelProps) {
+export function SideHustlePanel({ result, weeklySummary, condition }: SideHustlePanelProps) {
   const highFatigue = result.fatigueScore >= 70;
+  const tired = condition === "피곤함" || condition === "매우 피곤함";
 
   return (
     <section className="space-y-4">
@@ -38,6 +41,13 @@ export function SideHustlePanel({ result, weeklySummary }: SideHustlePanelProps)
         {highFatigue ? (
           <p className="mt-2 rounded-lg bg-coral/10 p-3 text-sm font-bold leading-6 text-coral">
             오늘은 긴 작업보다 15~30분 이하의 메모형 작업을 추천합니다.
+          </p>
+        ) : null}
+        {tired ? (
+          <p className="mt-2 rounded-lg bg-amber/20 p-3 text-sm font-bold leading-6 text-ink">
+            {condition === "매우 피곤함"
+              ? "오늘은 결과물을 만들기보다 아이디어 저장 정도로 충분합니다."
+              : "오늘은 15~30분 메모형 작업을 우선 추천합니다."}
           </p>
         ) : null}
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
