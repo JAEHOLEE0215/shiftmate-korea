@@ -2,9 +2,31 @@
 
 import { Section } from "@/components/Section";
 
-export function GuidePanel() {
+type GuidePanelProps = {
+  onShowOnboarding?: () => void;
+};
+
+export function GuidePanel({ onShowOnboarding }: GuidePanelProps) {
   return (
     <div className="space-y-4">
+      {onShowOnboarding ? (
+        <section className="rounded-lg border border-leaf/20 bg-white p-4 shadow-soft">
+          <p className="text-xs font-bold text-leaf">처음 안내</p>
+          <h2 className="mt-1 text-base font-bold text-ink">온보딩 카드를 다시 볼 수 있습니다</h2>
+          <p className="mt-2 break-keep text-sm leading-6 text-slate-700">
+            근무표 등록, 오늘 루틴 확인, 컨디션 기록 순서를 다시 확인하고 싶을 때 사용하세요.
+          </p>
+          <button
+            type="button"
+            onClick={onShowOnboarding}
+            aria-label="온보딩 다시 보기"
+            className="mt-3 min-h-11 rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white"
+          >
+            온보딩 다시 보기
+          </button>
+        </section>
+      ) : null}
+
       <Section title="교대근무 루틴이 어려운 이유">
         <p className="break-keep text-sm leading-6 text-slate-700">
           교대근무는 회사마다 근무 이름, 시작 시간, 종료 시간, 휴무 흐름이 다릅니다.
@@ -38,14 +60,17 @@ export function GuidePanel() {
           <Faq question="이 서비스는 수면 의학 조언인가요?" answer="아닙니다. ShiftMate Korea는 의학적 조언이 아닌 생활 루틴 참고용 웹앱입니다." />
         </div>
       </Section>
-      <Section title="앱처럼 사용하기">
+      <div id="app-guide">
+        <Section title="앱처럼 사용하기">
         <ul className="space-y-2 text-sm leading-6 text-slate-700">
           <li>iPhone Safari: 공유 버튼 → 홈 화면에 추가</li>
           <li>Android Chrome: 메뉴 → 홈 화면에 추가</li>
-          <li>앱스토어 등록 전에도 웹앱처럼 빠르게 다시 열 수 있습니다.</li>
+          <li>PC Chrome/Edge: 주소창 오른쪽 설치 아이콘 또는 메뉴 → 앱 설치</li>
+          <li>앱스토어 설치 전에도 웹앱처럼 빠르게 다시 열 수 있습니다.</li>
           <li>월간 근무표와 기록 데이터는 이 기기 localStorage에 저장됩니다.</li>
         </ul>
-      </Section>
+        </Section>
+      </div>
     </div>
   );
 }

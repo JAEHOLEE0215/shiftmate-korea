@@ -6,6 +6,7 @@ import { DailyCheckIn } from "@/components/DailyCheckIn";
 import { GuidePanel } from "@/components/GuidePanel";
 import { HandoverPanel } from "@/components/HandoverPanel";
 import { MonthlyCalendar } from "@/components/MonthlyCalendar";
+import { OnboardingCards } from "@/components/OnboardingCards";
 import { OptionButton } from "@/components/OptionButton";
 import { RecentRecords } from "@/components/RecentRecords";
 import { RoutineResult } from "@/components/RoutineResult";
@@ -51,6 +52,7 @@ const customTemplateStorageKey = "shiftmate-korea-custom-shift-template";
 const dailyRecordsStorageKey = "shiftmate-korea-daily-records";
 const monthlyStorageKey = "shiftmate-korea-monthly-schedule";
 const selectedDateStorageKey = "shiftmate-korea-selected-date";
+const onboardingHiddenStorageKey = "shiftmate-korea-onboarding-hidden";
 
 const shifts: Array<{ value: ShiftType; label: ShiftType; subLabel: string }> = [
   { value: "D", label: "D", subLabel: "주간" },
@@ -92,6 +94,7 @@ const heroBadges = [
 export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("today");
   const [storageReady, setStorageReady] = useState(false);
+  const [onboardingHidden, setOnboardingHidden] = useState(false);
   const [showWorkTimeSettings, setShowWorkTimeSettings] = useState(false);
   const [input, setInput] = useState<RoutineInput>(defaultInput);
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleType>(defaultWeeklySchedule);
@@ -154,6 +157,7 @@ export default function Home() {
     setSelectedDayIndex(browserTodayIndex);
     setSelectedDateKey(dateKey);
     setTodayDateKey(dateKey);
+    setOnboardingHidden(window.localStorage.getItem(onboardingHiddenStorageKey) === "true");
 
     let parsedWeekly: WeeklyScheduleType = defaultWeeklySchedule;
     const savedWeekly = window.localStorage.getItem(weeklyStorageKey);
@@ -343,6 +347,16 @@ export default function Home() {
     await navigator.clipboard.writeText(formatRoutineText(input, result, weeklySummaryText));
   }
 
+  function hideOnboarding() {
+    setOnboardingHidden(true);
+    window.localStorage.setItem(onboardingHiddenStorageKey, "true");
+  }
+
+  function showOnboarding() {
+    setOnboardingHidden(false);
+    window.localStorage.removeItem(onboardingHiddenStorageKey);
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6 sm:py-8">
       <header className="pt-2">
@@ -367,6 +381,8 @@ export default function Home() {
           ))}
         </div>
       </header>
+
+      {!onboardingHidden ? <OnboardingCards onDismiss={hideOnboarding} /> : null}
 
       <SummaryDashboard
         input={input}
@@ -455,12 +471,36 @@ export default function Home() {
         <HandoverPanel input={input} result={result} weeklySummaryText={weeklySummaryText} />
       ) : null}
 
-      {activeTab === "guide" ? <GuidePanel /> : null}
+      {activeTab === "guide" ? <GuidePanel onShowOnboarding={showOnboarding} /> : null}
 
-      <footer className="pb-5 text-xs leading-5 text-slate-600">
-        <p>의학적 조언이 아닌 생활 루틴 참고용입니다.</p>
-        <p>수면 부족, 무리한 운동, 과로를 권장하지 않습니다.</p>
-        <p>무료 웹앱이며 로그인과 결제 기능은 없습니다.</p>
+      <footer className="rounded-lg border border-ink/10 bg-white p-4 text-xs leading-5 text-slate-600 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="font-extrabold text-ink">ShiftMate Korea</p>
+            <p className="mt-1">생활 루틴 참고용 도구</p>
+            <p>서버 저장 없음 · 이 기기 안에만 저장</p>
+          </div>
+          <nav className="flex flex-wrap gap-3" aria-label="서비스 정책 링크">
+            <a className="font-bold text-ink underline-offset-4 hover:underline" href="/privacy">
+              개인정보처리방침
+            </a>
+            <a className="font-bold text-ink underline-offset-4 hover:underline" href="/terms">
+              이용약관
+            </a>
+            <button
+              type="button"
+              onClick={() => setActiveTab("guide")}
+              className="font-bold text-ink underline-offset-4 hover:underline"
+            >
+              홈 화면에 추가 안내
+            </button>
+          </nav>
+        </div>
+        <div className="mt-3 border-t border-ink/10 pt-3">
+          <p>의학적 조언이 아닌 생활 루틴 참고용입니다.</p>
+          <p>수면 부족, 무리한 운동, 과로를 권장하지 않습니다.</p>
+          <p>무료 웹앱이며 로그인, 서버 DB, 결제, 광고 기능은 없습니다.</p>
+        </div>
       </footer>
     </main>
   );
