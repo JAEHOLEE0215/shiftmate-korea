@@ -17,6 +17,12 @@ const toneClass = {
   care: "border-l-coral bg-coral/10",
 };
 
+function fatigueColor(score: number) {
+  if (score >= 80) return "bg-coral text-white";
+  if (score >= 60) return "bg-amber text-ink";
+  return "bg-leaf text-white";
+}
+
 export function RoutineResult({ input, result, onCopy, copied }: RoutineResultProps) {
   return (
     <section className="rounded-lg bg-ink p-4 text-white shadow-soft">
@@ -33,6 +39,38 @@ export function RoutineResult({ input, result, onCopy, copied }: RoutineResultPr
         >
           {copied ? "복사됨" : "복사"}
         </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-lg bg-white/10 p-3">
+          <p className="text-xs font-bold text-white/60">피로도 점수</p>
+          <div className="mt-2 flex items-end gap-2">
+            <span className="text-3xl font-extrabold">{result.fatigueScore}</span>
+            <span className={`rounded-md px-2 py-1 text-xs font-bold ${fatigueColor(result.fatigueScore)}`}>
+              {result.fatigueLabel}
+            </span>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-white/15">
+            <div
+              className="h-2 rounded-full bg-amber"
+              style={{ width: `${result.fatigueScore}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs leading-5 text-white/68">{result.fatigueNote}</p>
+        </div>
+
+        <div className="rounded-lg bg-white/10 p-3">
+          <p className="text-xs font-bold text-white/60">
+            {result.sideHustleTime.focusLabel ?? "부업 가능 시간"}
+          </p>
+          <p className="mt-2 text-3xl font-extrabold">{result.sideHustleTime.label}</p>
+          <p className="mt-2 text-xs leading-5 text-white/68">{result.sideHustleTime.note}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-amber/40 bg-amber/15 p-3">
+        <p className="text-sm font-bold text-white">오늘의 핵심 루틴</p>
+        <p className="mt-1 text-sm leading-6 text-white/78">{result.coreRoutine}</p>
       </div>
 
       <div className="mt-4 space-y-2">
@@ -59,6 +97,15 @@ export function RoutineResult({ input, result, onCopy, copied }: RoutineResultPr
             <li key={action}>{action}</li>
           ))}
         </ol>
+      </div>
+
+      <div className="mt-3 rounded-lg bg-white/10 p-3">
+        <h3 className="text-sm font-bold">{result.handoverMemo.title}</h3>
+        <div className="mt-2 space-y-2 text-sm leading-6 text-white/78">
+          {result.handoverMemo.lines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
       </div>
 
       <div className="mt-3 rounded-lg border border-coral/40 bg-coral/15 p-3 text-sm leading-6 text-white/82">

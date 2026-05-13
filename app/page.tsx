@@ -69,7 +69,7 @@ export default function Home() {
       <header className="pt-2">
         <p className="text-sm font-bold text-leaf">ShiftMate Korea</p>
         <h1 className="mt-1 text-3xl font-extrabold leading-10 text-ink">
-          교대근무자를 위한 오늘 루틴 생성기
+          교대근무자를 위한 루틴·수면·부업 플래너
         </h1>
         <p className="mt-3 text-sm leading-6 text-ink/65">
           근무표와 목표를 고르면 수면, 운동, 공부, 부업 시간을 한 번에 정리합니다.
@@ -149,8 +149,9 @@ export default function Home() {
       <RoutineResult input={input} result={result} onCopy={copyRoutine} copied={copied} />
 
       <footer className="pb-5 text-xs leading-5 text-ink/55">
-        <p>의학적 조언이 아닌 생활 루틴 참고용입니다.</p>
+        <p>의학적 판단이나 치료 안내가 아닌 생활 루틴 참고용입니다.</p>
         <p>수면 부족, 무리한 운동, 과로를 권장하지 않습니다.</p>
+        <p>무료 웹앱이며 로그인과 결제 기능은 없습니다.</p>
       </footer>
     </main>
   );

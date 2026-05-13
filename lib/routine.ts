@@ -23,16 +23,45 @@ export type ScheduleItem = {
   tone: "rest" | "work" | "growth" | "care";
 };
 
+export type SideHustleTime = {
+  label: string;
+  minutes: number;
+  note: string;
+  focusLabel?: string;
+};
+
+export type HandoverMemo = {
+  title: string;
+  lines: string[];
+};
+
 export type RoutineResult = {
   title: string;
   summary: string;
   schedule: ScheduleItem[];
   actions: string[];
   caution: string;
+  fatigueScore: number;
+  fatigueLabel: string;
+  fatigueNote: string;
+  sideHustleTime: SideHustleTime;
+  handoverMemo: HandoverMemo;
+  coreRoutine: string;
 };
 
 type ScheduleTuple = [string, string, string, ScheduleItem["tone"]];
-type RoutineBase = Omit<RoutineResult, "actions" | "caution" | "schedule"> & {
+type RoutineBase = Omit<
+  RoutineResult,
+  | "actions"
+  | "caution"
+  | "schedule"
+  | "fatigueScore"
+  | "fatigueLabel"
+  | "fatigueNote"
+  | "sideHustleTime"
+  | "handoverMemo"
+  | "coreRoutine"
+> & {
   schedule: ScheduleTuple[];
 };
 
@@ -45,10 +74,10 @@ const shiftLabels: Record<ShiftType, string> = {
 };
 
 const goalAction: Record<GoalType, string> = {
-  "회복 우선": "잠을 먼저 확보하고 나머지는 짧게 처리하기",
-  "운동 우선": "무리 없는 강도로 20~40분 움직이기",
+  "회복 우선": "수면과 휴식을 먼저 확보하고 나머지는 짧게 처리하기",
+  "운동 우선": "몸 상태를 보고 20~40분 안에서 가볍게 움직이기",
   "공부 우선": "집중이 잘 되는 시간에 40~60분 공부하기",
-  "부업 우선": "작게 팔 수 있는 결과물 1개 만들기",
+  "부업 우선": "작게 팔 수 있는 결과물 1개만 만들기",
   "균형 모드": "수면, 몸풀기, 공부를 작게 나누기",
 };
 
@@ -98,23 +127,31 @@ export function formatRoutineText(input: RoutineInput, result: RoutineResult) {
     .map((item) => `- ${item.time} ${item.title}: ${item.detail}`)
     .join("\n");
   const actions = result.actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
+  const memo = result.handoverMemo.lines.map((line) => `- ${line}`).join("\n");
 
-  return `ShiftMate Korea 루틴
+  return `[ShiftMate Korea]
 근무: ${getShiftText(input)}
 패턴: ${getPatternText(input)}
 목표: ${input.goal}
+피로도: ${result.fatigueScore}점 (${result.fatigueLabel})
+부업 가능 시간: ${result.sideHustleTime.label}
 
-${result.title}
-${result.summary}
+오늘의 핵심 루틴
+${result.coreRoutine}
 
 시간표
 ${rows}
 
-오늘의 추천 행동 3개
+추천 행동 3개
 ${actions}
 
-주의: ${result.caution}
-의학적 조언이 아닌 생활 루틴 참고용입니다. 수면 부족, 무리한 운동, 과로를 권장하지 않습니다.`;
+인수인계 메모 템플릿
+${memo}
+
+주의
+${result.caution}
+의학적 판단이나 치료 안내가 아닌 생활 루틴 참고용입니다.
+수면 부족, 무리한 운동, 과로를 권장하지 않습니다.`;
 }
 
 function dayRoutine(input: RoutineInput): RoutineResult {
@@ -134,7 +171,7 @@ function dayRoutine(input: RoutineInput): RoutineResult {
 function swingRoutine(input: RoutineInput): RoutineResult {
   return buildResult(input, {
     title: "S 근무자를 위한 오전 활용 루틴",
-    summary: "출근 전 집중 시간을 쓰고, 퇴근 후에는 바로 가라앉히는 구성입니다.",
+    summary: "출근 전 집중 시간을 쓰고, 퇴근 후에는 바로 쉬는 구성입니다.",
     schedule: [
       ["08:30", "기상", "햇빛 보기, 물 한 컵, 10분 산책", "care"],
       ["10:00", "목표 시간", goalBlock(input.goal), "growth"],
@@ -150,9 +187,9 @@ function nightRecovery(input: RoutineInput): RoutineResult {
     title: "야간근무 후 회복 루틴",
     summary: "퇴근 후 수면을 최우선으로 두고 몸을 천천히 회복시키는 구성입니다.",
     schedule: [
-      ["06:20", "퇴근 직후", "선글라스나 모자로 빛 자극 줄이기", "care"],
-      ["07:00", "가벼운 식사", "과식하지 말고 수면을 방해하지 않는 양만 먹기", "care"],
-      ["08:00~13:30", "핵심 수면", "방을 어둡게 하고 알림을 끄기", "rest"],
+      ["06:20", "퇴근 직후", "빛 자극을 줄이고 바로 귀가하기", "care"],
+      ["07:00", "가벼운 식사", "과식하지 말고 잠을 방해하지 않는 양만 먹기", "care"],
+      ["08:00~13:30", "핵심 수면", "방을 어둡게 하고 알림 끄기", "rest"],
       ["15:00", "회복 활동", "가벼운 걷기나 스트레칭 15분", "care"],
       ["18:30", "짧은 성장 시간", goalBlock(input.goal), "growth"],
     ],
@@ -168,7 +205,7 @@ function offDayGrowth(input: RoutineInput): RoutineResult {
       ["10:30", "운동", "걷기, 헬스, 홈트 중 하나를 30~50분", "growth"],
       ["13:00", "정리 시간", "집안일과 다음 근무 준비를 짧게 처리", "care"],
       ["15:00", "성장 블록", goalBlock(input.goal), "growth"],
-      ["22:30", "수면 준비", "다음 근무에 맞춰 취침 시간을 조정", "rest"],
+      ["22:30", "수면 준비", "다음 근무에 맞춰 취침 시간 조정", "rest"],
     ],
   });
 }
@@ -187,10 +224,10 @@ function customRoutine(input: RoutineInput): RoutineResult {
   });
 }
 
-function buildResult(
-  input: RoutineInput,
-  base: RoutineBase,
-): RoutineResult {
+function buildResult(input: RoutineInput, base: RoutineBase): RoutineResult {
+  const fatigueScore = calculateFatigueScore(input);
+  const sideHustleTime = calculateSideHustleTime(input, fatigueScore);
+
   return {
     ...base,
     schedule: base.schedule.map(([time, title, detail, tone]) => ({
@@ -201,11 +238,128 @@ function buildResult(
     })),
     actions: [
       goalAction[input.goal],
-      "졸리면 계획을 줄이고 20분 이내로 짧게 쉬기",
-      `${getPatternText(input)} 리듬에 맞춰 내일 준비물 미리 챙기기`,
+      fatigueScore >= 75 ? "오늘은 추가 계획을 줄이고 짧게만 진행하기" : "작은 할 일 1개를 끝내기",
+      `${getPatternText(input)} 리듬에 맞춰 다음 근무 준비물 미리 챙기기`,
     ],
-    caution: cautionText(input),
+    caution: cautionText(input, fatigueScore),
+    fatigueScore,
+    fatigueLabel: fatigueLabel(fatigueScore),
+    fatigueNote: fatigueNote(input, fatigueScore),
+    sideHustleTime,
+    handoverMemo: createHandoverMemo(),
+    coreRoutine: createCoreRoutine(input, fatigueScore, sideHustleTime),
   };
+}
+
+function calculateFatigueScore(input: RoutineInput) {
+  let score = 45;
+
+  if (input.shiftType === "D") score += 8;
+  if (input.shiftType === "S") score += 12;
+  if (input.shiftType === "G") score += 35;
+  if (input.shiftType === "Off") score -= input.goal === "회복 우선" ? 20 : 6;
+  if (input.shiftType === "custom") score += 15;
+
+  if (input.routineType === "야간근무 후 회복 루틴") score += 28;
+  if (input.routineType === "Off day 성장 루틴") {
+    score += input.goal === "회복 우선" ? -12 : 4;
+  }
+  if (input.routineType === "내일 루틴") score -= 4;
+
+  if (input.goal === "회복 우선") score -= 10;
+  if (input.goal === "운동 우선") score += 7;
+  if (input.goal === "공부 우선") score += 4;
+  if (input.goal === "부업 우선") score += 9;
+
+  return Math.min(100, Math.max(0, score));
+}
+
+function calculateSideHustleTime(input: RoutineInput, fatigueScore: number): SideHustleTime {
+  if (input.shiftType === "Off" || input.routineType === "Off day 성장 루틴") {
+    const minutes = input.goal === "회복 우선" ? 60 : input.goal === "부업 우선" ? 180 : 120;
+    return {
+      label: `${minutes}분`,
+      minutes,
+      focusLabel: "집중 작업 가능 시간",
+      note:
+        input.goal === "회복 우선"
+          ? "쉬는 날이어도 회복을 먼저 두고 60분 안에서 진행하세요."
+          : "Off day는 집중 작업 가능 시간을 따로 잡기 좋습니다.",
+    };
+  }
+
+  if (fatigueScore >= 80) {
+    return {
+      label: "15~30분",
+      minutes: 30,
+      note: "피로도가 높아 오늘은 15~30분 이하 추천입니다.",
+    };
+  }
+
+  if (fatigueScore >= 65) {
+    return {
+      label: "30~45분",
+      minutes: 45,
+      note: "긴 작업보다 정리, 초안, 자료 수집처럼 가벼운 작업이 맞습니다.",
+    };
+  }
+
+  const minutes = input.goal === "부업 우선" ? 90 : 60;
+  return {
+    label: `${minutes}분`,
+    minutes,
+    note: "작은 결과물 1개를 목표로 잡기 좋은 시간입니다.",
+  };
+}
+
+function createHandoverMemo(): HandoverMemo {
+  return {
+    title: "인수인계 메모 템플릿",
+    lines: [
+      "금일 근무 특이사항:",
+      "확인 필요 항목:",
+      "다음 근무자 전달사항:",
+      "개인 컨디션 메모:",
+    ],
+  };
+}
+
+function createCoreRoutine(input: RoutineInput, fatigueScore: number, sideHustleTime: SideHustleTime) {
+  if (fatigueScore >= 80) {
+    return `회복 먼저, 부업은 ${sideHustleTime.label} 안에서 메모나 초안만 진행`;
+  }
+
+  if (input.shiftType === "Off" || input.routineType === "Off day 성장 루틴") {
+    return `오전 회복, 오후 ${sideHustleTime.focusLabel ?? "부업 가능 시간"} ${sideHustleTime.label}`;
+  }
+
+  if (input.goal === "부업 우선") {
+    return `퇴근 후 회복 1시간 확보 뒤 부업 ${sideHustleTime.label}`;
+  }
+
+  return `수면 준비를 먼저 고정하고 목표 활동은 ${sideHustleTime.label} 안에서 진행`;
+}
+
+function fatigueLabel(score: number) {
+  if (score >= 80) return "높음";
+  if (score >= 60) return "주의";
+  if (score >= 35) return "보통";
+  return "낮음";
+}
+
+function fatigueNote(input: RoutineInput, score: number) {
+  if (input.shiftType === "G" || input.routineType === "야간근무 후 회복 루틴") {
+    return "야간 리듬이라 피로도를 높게 잡았습니다. 오늘은 회복 시간을 먼저 확보하세요.";
+  }
+
+  if (input.shiftType === "Off" || input.routineType === "Off day 성장 루틴") {
+    return input.goal === "회복 우선"
+      ? "회복형 Off day로 피로도를 낮게 잡았습니다."
+      : "성장형 Off day라 집중 시간은 늘리고 과한 일정은 줄였습니다.";
+  }
+
+  if (score >= 75) return "계획을 줄이고 꼭 필요한 활동만 남기는 편이 좋습니다.";
+  return "근무 후 남는 에너지를 작은 루틴으로 나눠 쓰는 상태입니다.";
 }
 
 function goalBlock(goal: GoalType) {
@@ -216,9 +370,13 @@ function goalBlock(goal: GoalType) {
   return "운동 20분, 공부 30분, 부업 메모 15분";
 }
 
-function cautionText(input: RoutineInput) {
+function cautionText(input: RoutineInput, fatigueScore: number) {
   if (input.shiftType === "G" || input.routineType === "야간근무 후 회복 루틴") {
-    return "야간 후에는 수면 부족이 쌓이기 쉬워 강한 운동과 긴 공부를 피하세요.";
+    return "야간 후에는 피로가 쌓이기 쉬우므로 강한 운동과 긴 공부를 피하세요.";
+  }
+
+  if (fatigueScore >= 80) {
+    return "피로도가 높습니다. 오늘은 계획을 줄이고 쉬는 시간을 먼저 두세요.";
   }
 
   if (input.goal === "운동 우선") {
