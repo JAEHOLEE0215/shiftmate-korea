@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { RoutineInput, RoutineResult as RoutineResultType } from "@/lib/routine";
-import { formatHandoverMemo, formatRoutineText, getShiftText } from "@/lib/routine";
+import {
+  formatHandoverMemo,
+  formatRoutineText,
+  getPatternText,
+  getShiftText,
+} from "@/lib/routine";
 
 type RoutineResultProps = {
   input: RoutineInput;
@@ -45,8 +50,9 @@ export function RoutineResult({ input, result, onCopy, copied }: RoutineResultPr
     >
       <div className="rounded-lg border border-slate-600/70 bg-slate-900 p-3">
         <p className="text-xs font-bold text-amber">오늘 요약</p>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
           <SummaryItem label="근무" value={getShiftText(input)} />
+          <SummaryItem label="패턴" value={getPatternText(input)} />
           <SummaryItem label="목표" value={input.goal} />
           <div className="rounded-lg border border-slate-600/70 bg-slate-800/90 p-3">
             <p className="text-xs font-bold text-slate-300">피로도</p>

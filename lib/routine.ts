@@ -1,5 +1,13 @@
-export type ShiftType = "D" | "S" | "G" | "Off" | "custom";
-export type PatternType = "4조3교대" | "3조2교대" | "2교대" | "야간 고정" | "직접 입력";
+export type ShiftType = "D" | "S" | "G" | "N" | "Off" | "custom";
+export type PatternType =
+  | "4조3교대"
+  | "3조2교대"
+  | "2교대"
+  | "주야비"
+  | "주주야야비비"
+  | "주간 고정"
+  | "야간 고정"
+  | "직접 입력";
 export type GoalType = "회복 우선" | "운동 우선" | "공부 우선" | "부업 우선" | "균형 모드";
 export type RoutineType =
   | "오늘 루틴"
@@ -9,6 +17,10 @@ export type RoutineType =
 
 export type RoutineInput = {
   shiftType: ShiftType;
+  shiftName: string;
+  shiftStart: string;
+  shiftEnd: string;
+  shiftMemo: string;
   customShift: string;
   pattern: PatternType;
   customPattern: string;
@@ -68,12 +80,19 @@ type RoutineBase = Omit<
   schedule: ScheduleTuple[];
 };
 
-const shiftLabels: Record<ShiftType, string> = {
-  D: "D 06:00~14:00",
-  S: "S 14:00~22:00",
-  G: "G 22:00~06:00",
-  Off: "Off",
-  custom: "직접 입력",
+type ShiftPreset = {
+  name: string;
+  start: string;
+  end: string;
+};
+
+export const shiftPresets: Record<ShiftType, ShiftPreset> = {
+  D: { name: "D 주간", start: "06:00", end: "14:00" },
+  S: { name: "S 오후", start: "14:00", end: "22:00" },
+  G: { name: "G 야간", start: "22:00", end: "06:00" },
+  N: { name: "N 야간", start: "20:00", end: "08:00" },
+  Off: { name: "Off 휴무", start: "", end: "" },
+  custom: { name: "직접 입력", start: "07:00", end: "15:00" },
 };
 
 const goalAction: Record<GoalType, string> = {
@@ -86,6 +105,10 @@ const goalAction: Record<GoalType, string> = {
 
 export const defaultInput: RoutineInput = {
   shiftType: "D",
+  shiftName: shiftPresets.D.name,
+  shiftStart: shiftPresets.D.start,
+  shiftEnd: shiftPresets.D.end,
+  shiftMemo: "",
   customShift: "",
   pattern: "4조3교대",
   customPattern: "",
@@ -94,9 +117,11 @@ export const defaultInput: RoutineInput = {
 };
 
 export function getShiftText(input: RoutineInput) {
-  return input.shiftType === "custom" && input.customShift.trim()
-    ? input.customShift.trim()
-    : shiftLabels[input.shiftType];
+  if (isOff(input)) return "Off 휴무";
+
+  const name = input.shiftName.trim() || shiftPresets[input.shiftType].name;
+  const timeText = input.shiftStart && input.shiftEnd ? `${input.shiftStart}~${input.shiftEnd}` : "";
+  return timeText ? `${name} ${timeText}` : name;
 }
 
 export function getPatternText(input: RoutineInput) {
@@ -106,23 +131,19 @@ export function getPatternText(input: RoutineInput) {
 }
 
 export function createRoutine(input: RoutineInput): RoutineResult {
-  if (input.routineType === "야간근무 후 회복 루틴" || input.shiftType === "G") {
-    return nightRecovery(input);
+  if (isOff(input) || input.routineType === "Off day 성장 루틴") {
+    return offDayGrowth(input);
   }
 
-  if (input.routineType === "Off day 성장 루틴" || input.shiftType === "Off") {
-    return offDayGrowth(input);
+  if (isNightShift(input) || input.routineType === "야간근무 후 회복 루틴") {
+    return nightRecovery(input);
   }
 
   if (input.shiftType === "S") {
     return swingRoutine(input);
   }
 
-  if (input.shiftType === "custom") {
-    return customRoutine(input);
-  }
-
-  return dayRoutine(input);
+  return workdayRoutine(input);
 }
 
 export function formatHandoverMemo(result: RoutineResult) {
@@ -151,30 +172,30 @@ ${actions}
 수면 부족, 무리한 운동, 과로를 권장하지 않습니다.`;
 }
 
-function dayRoutine(input: RoutineInput): RoutineResult {
+function workdayRoutine(input: RoutineInput): RoutineResult {
   return buildResult(input, {
-    title: "D 근무자를 위한 퇴근 후 회복 루틴",
-    summary: "오전 근무 후 오후 에너지를 회복과 성장에 나눠 쓰는 구성입니다.",
+    title: `${input.shiftName || "선택 근무"} 흐름에 맞춘 루틴`,
+    summary: "회사별 근무시간을 기준으로 회복과 목표 시간을 나눠 배치했습니다.",
     schedule: [
-      ["05:10", "출근 준비", "물 한 컵, 가벼운 스트레칭, 간단한 식사", "care"],
-      ["06:00~14:00", "근무", "카페인은 오전 중으로 줄이고 물을 자주 마시기", "work"],
-      ["14:30", "회복 식사", "과식보다 단백질과 탄수화물을 적당히 챙기기", "care"],
-      ["16:00", "목표 시간", goalBlock(input.goal), "growth"],
-      ["21:30", "수면 준비", "휴대폰 밝기를 낮추고 내일 준비물 정리", "rest"],
+      ["출근 60분 전", "출근 준비", "물 한 컵, 가벼운 스트레칭, 간단한 식사", "care"],
+      [workTimeText(input), "근무", "중간중간 물을 마시고 퇴근 후 추가 일정을 줄이기", "work"],
+      ["퇴근 후 1시간", "회복 식사", "과식보다 부담 낮은 식사와 샤워 먼저 하기", "care"],
+      ["회복 후", "목표 시간", goalBlock(input.goal), "growth"],
+      ["취침 전", "수면 준비", "휴대폰 밝기를 낮추고 다음 근무 준비물 정리", "rest"],
     ],
   });
 }
 
 function swingRoutine(input: RoutineInput): RoutineResult {
   return buildResult(input, {
-    title: "S 근무자를 위한 오전 활용 루틴",
-    summary: "출근 전 집중 시간을 쓰고, 퇴근 후에는 바로 쉬는 구성입니다.",
+    title: "오후 근무자를 위한 오전 활용 루틴",
+    summary: "출근 전 집중 시간을 쓰고 퇴근 후에는 바로 쉬는 구성입니다.",
     schedule: [
-      ["08:30", "기상", "햇빛 보기, 물 한 컵, 10분 산책", "care"],
-      ["10:00", "목표 시간", goalBlock(input.goal), "growth"],
-      ["12:30", "출근 전 식사", "속이 부담스럽지 않은 식사와 준비물 확인", "care"],
-      ["14:00~22:00", "근무", "늦은 카페인은 피하고 퇴근 후 일을 늘리지 않기", "work"],
-      ["23:20", "수면 준비", "샤워 후 조명 낮추고 바로 쉬기", "rest"],
+      ["기상 후", "가벼운 시작", "햇빛 보기, 물 한 컵, 10분 산책", "care"],
+      ["출근 전", "목표 시간", goalBlock(input.goal), "growth"],
+      ["출근 90분 전", "식사와 준비", "속이 부담스럽지 않은 식사와 준비물 확인", "care"],
+      [workTimeText(input), "근무", "늦은 카페인은 피하고 퇴근 후 일을 늘리지 않기", "work"],
+      ["퇴근 후", "수면 준비", "샤워 후 조명 낮추고 바로 쉬기", "rest"],
     ],
   });
 }
@@ -182,41 +203,27 @@ function swingRoutine(input: RoutineInput): RoutineResult {
 function nightRecovery(input: RoutineInput): RoutineResult {
   return buildResult(input, {
     title: "야간근무 후 회복 루틴",
-    summary: "퇴근 후 수면을 먼저 두고 짧은 정리와 휴식 위주로 배치한 구성입니다.",
+    summary: "야간근무 후에는 긴 집중 작업보다 수면, 식사, 짧은 정리를 먼저 배치했습니다.",
     schedule: [
-      ["06:20", "퇴근 직후", "빛 자극을 줄이고 바로 귀가하기", "care"],
-      ["07:00", "가벼운 식사", "과식하지 말고 잠을 방해하지 않는 양만 먹기", "care"],
-      ["08:00~13:30", "핵심 수면", "방을 어둡게 하고 알림 끄기", "rest"],
-      ["15:00", "회복 활동", "가벼운 걷기나 스트레칭 15분", "care"],
-      ["18:30", "짧은 성장 시간", goalBlock(input.goal), "growth"],
+      ["퇴근 직후", "귀가와 정리", "빛 자극을 줄이고 바로 귀가하기", "care"],
+      ["귀가 후", "가벼운 식사", "과식하지 말고 잠을 방해하지 않는 양만 먹기", "care"],
+      ["식사 후", "핵심 수면", "방을 어둡게 하고 알림 끄기", "rest"],
+      ["기상 후", "회복 활동", "가벼운 걷기나 스트레칭 15분", "care"],
+      ["회복 후", "짧은 성장 시간", goalBlock(input.goal), "growth"],
     ],
   });
 }
 
 function offDayGrowth(input: RoutineInput): RoutineResult {
   return buildResult(input, {
-    title: "Off day 성장 루틴",
-    summary: "쉬는 날을 몰아붙이지 않고 회복과 성장을 같이 챙기는 구성입니다.",
+    title: "휴무일 회복과 성장 루틴",
+    summary: "휴무일에는 회복 블록을 먼저 두고 남는 시간을 성장 활동에 배치했습니다.",
     schedule: [
-      ["09:00", "기상", "평소보다 너무 늦지 않게 일어나 리듬 유지", "care"],
-      ["10:30", "운동", "걷기, 헬스, 홈트 중 하나를 30~50분", "growth"],
-      ["13:00", "정리 시간", "집안일과 다음 근무 준비를 짧게 처리", "care"],
-      ["15:00", "성장 블록", goalBlock(input.goal), "growth"],
-      ["22:30", "수면 준비", "다음 근무에 맞춰 취침 시간 조정", "rest"],
-    ],
-  });
-}
-
-function customRoutine(input: RoutineInput): RoutineResult {
-  return buildResult(input, {
-    title: "직접 입력 근무 맞춤 루틴",
-    summary: "입력한 근무 시간을 기준으로 회복, 운동, 공부, 부업 시간을 작게 배치했습니다.",
-    schedule: [
-      ["근무 90분 전", "준비", "식사, 물, 준비물을 먼저 챙기기", "care"],
-      [getShiftText(input), "근무", "중간중간 물을 마시고 무리한 추가 일정을 줄이기", "work"],
-      ["퇴근 후 1시간", "회복", "식사와 샤워 후 몸 상태를 먼저 확인", "rest"],
-      ["회복 후", "목표 시간", goalBlock(input.goal), "growth"],
-      ["취침 전", "마무리", "내일 할 일 1개만 적고 쉬기", "rest"],
+      ["오전", "기상과 회복", "평소보다 너무 늦지 않게 일어나 리듬 유지", "care"],
+      ["오전 후반", "가벼운 운동", "걷기, 헬스, 홈트 중 하나를 30~50분", "growth"],
+      ["점심 후", "정리 시간", "집안일과 다음 근무 준비를 짧게 처리", "care"],
+      ["오후", "성장 블록", goalBlock(input.goal), "growth"],
+      ["밤", "수면 준비", "다음 근무에 맞춰 취침 시간 조정", "rest"],
     ],
   });
 }
@@ -236,7 +243,7 @@ function buildResult(input: RoutineInput, base: RoutineBase): RoutineResult {
     actions: [
       goalAction[input.goal],
       fatigueScore >= 70 ? "오늘은 추가 계획을 줄이고 짧게만 진행하기" : "작은 할 일 1개를 끝내기",
-      `${getPatternText(input)} 리듬에 맞춰 다음 근무 준비물 미리 챙기기`,
+      "선택한 근무 패턴에 맞춰 다음 근무 준비물 미리 챙기기",
     ],
     caution: cautionText(input, fatigueScore),
     fatigueScore,
@@ -250,48 +257,45 @@ function buildResult(input: RoutineInput, base: RoutineBase): RoutineResult {
 }
 
 function calculateFatigueScore(input: RoutineInput) {
-  let score = 45;
+  let score = 42;
+  const night = isNightShift(input);
+  const nextDayEnd = endsNextDay(input);
 
-  if (input.shiftType === "D") score += 8;
-  if (input.shiftType === "S") score += 12;
-  if (input.shiftType === "G") score += 35;
-  if (input.shiftType === "Off") score -= input.goal === "회복 우선" ? 20 : 6;
-  if (input.shiftType === "custom") score += 15;
+  if (isOff(input)) score -= input.goal === "회복 우선" ? 20 : 8;
+  if (night) score += 28;
+  if (nextDayEnd) score += 10;
+  if (input.shiftType === "S") score += 8;
+  if (input.shiftType === "custom") score += 6;
 
-  if (input.routineType === "야간근무 후 회복 루틴") score += 28;
-  if (input.routineType === "Off day 성장 루틴") {
-    score += input.goal === "회복 우선" ? -12 : 4;
-  }
+  if (input.routineType === "야간근무 후 회복 루틴") score += 18;
+  if (input.routineType === "Off day 성장 루틴") score += input.goal === "회복 우선" ? -10 : 3;
   if (input.routineType === "내일 루틴") score -= 4;
 
   if (input.goal === "회복 우선") score -= 10;
   if (input.goal === "운동 우선") score += 7;
   if (input.goal === "공부 우선") score += 4;
-  if (input.goal === "부업 우선") score += 9;
+  if (input.goal === "부업 우선") score += night ? 14 : 9;
 
   return Math.min(100, Math.max(0, score));
 }
 
 function calculateSideHustleTime(input: RoutineInput, fatigueScore: number): SideHustleTime {
-  if (input.shiftType === "Off" || input.routineType === "Off day 성장 루틴") {
-    const minutes = input.goal === "회복 우선" ? 60 : input.goal === "부업 우선" ? 120 : 90;
+  if (isOff(input) || input.routineType === "Off day 성장 루틴") {
+    const minutes = input.goal === "회복 우선" ? 60 : input.goal === "부업 우선" ? 180 : 120;
     return {
-      label: minutes >= 120 ? "1~2시간" : `${minutes}분`,
+      label: minutes >= 180 ? "1~3시간" : minutes >= 120 ? "1~2시간" : "60분",
       minutes,
       focusLabel: "집중 작업 가능 시간",
-      note:
-        input.goal === "회복 우선"
-          ? "쉬는 날이어도 회복을 먼저 두고 60분 안에서 진행하세요."
-          : "Off day는 집중 작업 가능 시간을 따로 잡기 좋습니다.",
+      note: "휴무일에는 1~3시간도 가능하지만 회복 블록을 먼저 두는 편이 현실적입니다.",
       workType: sideHustleWorkType(minutes),
     };
   }
 
-  if (input.shiftType === "G" || input.routineType === "야간근무 후 회복 루틴") {
+  if (isNightShift(input) || endsNextDay(input) || input.routineType === "야간근무 후 회복 루틴") {
     return {
       label: "15~30분",
       minutes: 30,
-      note: "긴 집중 작업보다 회복 후 짧은 메모형 부업을 추천합니다.",
+      note: "야간근무 후에는 15~30분 이하의 짧은 메모형 작업을 추천합니다.",
       workType: sideHustleWorkType(30),
     };
   }
@@ -300,25 +304,16 @@ function calculateSideHustleTime(input: RoutineInput, fatigueScore: number): Sid
     return {
       label: "15~30분",
       minutes: 30,
-      note: "오늘은 15~30분 이하의 가벼운 작업만 추천합니다.",
+      note: "피로도 70점 이상이면 짧은 메모형 작업이 맞습니다.",
       workType: sideHustleWorkType(30),
     };
   }
 
-  if (fatigueScore >= 40) {
-    return {
-      label: "30~60분",
-      minutes: 60,
-      note: "긴 작업보다 초안, 자료 정리, 가벼운 수정이 맞습니다.",
-      workType: sideHustleWorkType(60),
-    };
-  }
-
-  const minutes = input.goal === "부업 우선" ? 120 : 60;
+  const minutes = input.goal === "부업 우선" ? 90 : 60;
   return {
-    label: minutes >= 120 ? "1~2시간" : "30~60분",
+    label: minutes > 60 ? "60~90분" : "30~60분",
     minutes,
-    note: "작은 결과물 1개를 목표로 잡기 좋은 시간입니다.",
+    note: "주간근무 후에는 회복 뒤 30~90분 범위에서 작은 결과물 1개를 목표로 잡기 좋습니다.",
     workType: sideHustleWorkType(minutes),
   };
 }
@@ -343,15 +338,15 @@ function createHandoverMemo(): HandoverMemo {
 
 function createCoreRoutine(input: RoutineInput, fatigueScore: number, sideHustleTime: SideHustleTime) {
   if (fatigueScore >= 70) {
-    return `회복 먼저, 부업은 ${sideHustleTime.label} 안에서 메모나 초안만 진행`;
+    return `오늘 근무 흐름에 맞춰 회복 먼저, 부업은 ${sideHustleTime.label} 안에서 메모나 초안만 진행`;
   }
 
-  if (input.shiftType === "Off" || input.routineType === "Off day 성장 루틴") {
-    return `오전 회복, 오후 ${sideHustleTime.focusLabel ?? "부업 가능 시간"} ${sideHustleTime.label}`;
+  if (isOff(input) || input.routineType === "Off day 성장 루틴") {
+    return `휴무일에는 회복 블록을 먼저 두고 ${sideHustleTime.focusLabel ?? "부업 가능 시간"} ${sideHustleTime.label}`;
   }
 
   if (input.goal === "부업 우선") {
-    return `퇴근 후 회복 1시간 확보 뒤 부업 ${sideHustleTime.label}`;
+    return `퇴근 후 회복 시간을 먼저 확보한 뒤 부업 ${sideHustleTime.label}`;
   }
 
   return `수면 준비를 먼저 고정하고 목표 활동은 ${sideHustleTime.label} 안에서 진행`;
@@ -370,18 +365,18 @@ function recommendedMode(score: number) {
 }
 
 function fatigueNote(input: RoutineInput, score: number) {
-  if (input.shiftType === "G" || input.routineType === "야간근무 후 회복 루틴") {
-    return "야간 리듬이라 피로도를 높게 잡았습니다. 오늘은 회복 시간을 먼저 확보하세요.";
+  if (isNightShift(input) || endsNextDay(input)) {
+    return "야간 시간대가 포함되어 피로도를 높게 잡았습니다. 오늘은 회복 시간을 먼저 확보하세요.";
   }
 
-  if (input.shiftType === "Off" || input.routineType === "Off day 성장 루틴") {
+  if (isOff(input)) {
     return input.goal === "회복 우선"
-      ? "회복형 Off day로 피로도를 낮게 잡았습니다."
-      : "성장형 Off day라 집중 시간은 늘리고 과한 일정은 줄였습니다.";
+      ? "휴무일 회복형 루틴으로 피로도를 낮게 잡았습니다."
+      : "휴무일 성장형 루틴이라 집중 시간은 늘리고 과한 일정은 줄였습니다.";
   }
 
   if (score >= 70) return "계획을 줄이고 꼭 필요한 활동만 남기는 편이 좋습니다.";
-  return "근무 후 남는 에너지를 작은 루틴으로 나눠 쓰는 상태입니다.";
+  return "오늘 근무 흐름에 맞춰 남는 에너지를 작은 루틴으로 나눠 쓰는 상태입니다.";
 }
 
 function goalBlock(goal: GoalType) {
@@ -393,8 +388,10 @@ function goalBlock(goal: GoalType) {
 }
 
 function cautionText(input: RoutineInput, fatigueScore: number) {
-  if (input.shiftType === "G" || input.routineType === "야간근무 후 회복 루틴") {
-    return "야간 후에는 피로가 쌓이기 쉬우므로 강한 운동과 긴 공부를 피하세요.";
+  if (isNightShift(input) || endsNextDay(input)) {
+    return input.goal === "부업 우선"
+      ? "야간근무 후 부업 우선 목표라면 긴 집중 작업보다 짧은 메모형 작업만 남기세요."
+      : "야간근무 후에는 피로가 쌓이기 쉬우므로 강한 운동과 긴 공부를 피하세요.";
   }
 
   if (fatigueScore >= 70) {
@@ -410,4 +407,51 @@ function cautionText(input: RoutineInput, fatigueScore: number) {
   }
 
   return "피로가 심하면 루틴을 줄이고 회복을 먼저 선택하세요.";
+}
+
+function workTimeText(input: RoutineInput) {
+  if (!input.shiftStart || !input.shiftEnd) return getShiftText(input);
+  return endsNextDay(input) ? `${input.shiftStart}~다음 날 ${input.shiftEnd}` : `${input.shiftStart}~${input.shiftEnd}`;
+}
+
+function isOff(input: RoutineInput) {
+  return input.shiftType === "Off";
+}
+
+function isNightShift(input: RoutineInput) {
+  if (input.shiftType === "G" || input.shiftType === "N") return true;
+  if (!input.shiftStart || !input.shiftEnd || isOff(input)) return false;
+
+  const start = parseTime(input.shiftStart);
+  const end = parseTime(input.shiftEnd);
+  if (start === null || end === null) return false;
+
+  return includesNightHour(start, end) || endsNextDay(input);
+}
+
+function endsNextDay(input: RoutineInput) {
+  if (!input.shiftStart || !input.shiftEnd || isOff(input)) return false;
+  const start = parseTime(input.shiftStart);
+  const end = parseTime(input.shiftEnd);
+  if (start === null || end === null) return false;
+  return end <= start;
+}
+
+function includesNightHour(start: number, end: number) {
+  const adjustedEnd = end <= start ? end + 24 * 60 : end;
+  for (let minute = start; minute <= adjustedEnd; minute += 60) {
+    const hour = Math.floor((minute % (24 * 60)) / 60);
+    if (hour >= 22 || hour < 6) return true;
+  }
+  return false;
+}
+
+function parseTime(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
 }

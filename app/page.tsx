@@ -8,6 +8,7 @@ import {
   createRoutine,
   defaultInput,
   formatRoutineText,
+  shiftPresets,
   type GoalType,
   type PatternType,
   type RoutineInput,
@@ -18,14 +19,24 @@ import {
 const storageKey = "shiftmate-korea-routine";
 
 const shifts: Array<{ value: ShiftType; label: ShiftType; subLabel: string }> = [
-  { value: "D", label: "D", subLabel: "06:00~14:00" },
-  { value: "S", label: "S", subLabel: "14:00~22:00" },
-  { value: "G", label: "G", subLabel: "22:00~06:00" },
-  { value: "Off", label: "Off", subLabel: "쉬는 날" },
+  { value: "D", label: "D", subLabel: "주간" },
+  { value: "S", label: "S", subLabel: "오후" },
+  { value: "G", label: "G", subLabel: "야간" },
+  { value: "N", label: "N", subLabel: "야간" },
+  { value: "Off", label: "Off", subLabel: "휴무" },
   { value: "custom", label: "custom", subLabel: "직접 입력" },
 ];
 
-const patterns: PatternType[] = ["4조3교대", "3조2교대", "2교대", "야간 고정", "직접 입력"];
+const patterns: Array<{ value: PatternType; subLabel: string }> = [
+  { value: "4조3교대", subLabel: "D/S/G/Off가 반복되는 교대 형태" },
+  { value: "3조2교대", subLabel: "주야 교대와 휴무가 반복되는 형태" },
+  { value: "2교대", subLabel: "주간과 야간이 크게 나뉘는 형태" },
+  { value: "주야비", subLabel: "주간·야간·비번 흐름을 가진 형태" },
+  { value: "주주야야비비", subLabel: "주간 2일, 야간 2일, 비번 2일 흐름" },
+  { value: "주간 고정", subLabel: "주간 근무가 반복되는 형태" },
+  { value: "야간 고정", subLabel: "야간 근무가 반복되는 형태" },
+  { value: "직접 입력", subLabel: "회사 근무시간에 맞게 직접 조정" },
+];
 const goals: GoalType[] = ["회복 우선", "운동 우선", "공부 우선", "부업 우선", "균형 모드"];
 const routineTypes: RoutineType[] = [
   "오늘 루틴",
@@ -33,7 +44,16 @@ const routineTypes: RoutineType[] = [
   "야간근무 후 회복 루틴",
   "Off day 성장 루틴",
 ];
-const heroBadges = ["4조3교대", "야간근무", "수면 루틴", "부업 시간", "인수인계 메모"];
+const heroBadges = [
+  "4조3교대",
+  "3조2교대",
+  "2교대",
+  "주야비",
+  "야간근무",
+  "직접 입력",
+  "부업 시간",
+  "인수인계 메모",
+];
 
 export default function Home() {
   const [input, setInput] = useState<RoutineInput>(defaultInput);
@@ -66,6 +86,18 @@ export default function Home() {
     setCopied(false);
   }
 
+  function selectShift(value: ShiftType) {
+    const preset = shiftPresets[value];
+    setInput((current) => ({
+      ...current,
+      shiftType: value,
+      shiftName: preset.name,
+      shiftStart: preset.start,
+      shiftEnd: preset.end,
+    }));
+    setCopied(false);
+  }
+
   async function copyRoutine() {
     await navigator.clipboard.writeText(formatRoutineText(input, result));
     setCopied(true);
@@ -76,12 +108,15 @@ export default function Home() {
       <header className="pt-2">
         <p className="text-sm font-bold text-leaf">ShiftMate Korea</p>
         <h1 className="mt-1 text-3xl font-extrabold leading-10 text-ink">
-          4조3교대·야간근무자를 위한 현실 루틴 플래너
+          교대근무자를 위한 맞춤 루틴 플래너
         </h1>
         <p className="mt-3 break-keep text-sm leading-6 text-slate-700">
-          D/S/G/Off 근무표에 맞춰 수면, 운동, 공부, 부업 시간을 오늘 바로 실행 가능한 루틴으로 정리합니다.
+          회사마다 다른 D/S/G/N/Off 근무표에 맞춰 수면, 운동, 공부, 부업 시간을 오늘 바로 실행 가능한 루틴으로 정리합니다.
         </p>
-        <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm font-bold text-ink shadow-soft">
+        <p className="mt-3 break-keep rounded-lg bg-white px-4 py-3 text-sm font-bold leading-6 text-ink shadow-soft">
+          4조3교대뿐 아니라 3조2교대, 2교대, 주야비, 야간 고정, 직접 입력 근무표까지 고려합니다.
+        </p>
+        <p className="mt-2 rounded-lg bg-white px-4 py-3 text-sm font-bold text-ink shadow-soft">
           회원가입 없음 · 결제 없음 · 이 기기 안에만 저장
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -94,38 +129,84 @@ export default function Home() {
       </header>
 
       <Section title="1. 근무 타입 선택" description="오늘 또는 기준이 되는 근무를 고르세요.">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
           {shifts.map((shift) => (
             <OptionButton
               key={shift.value}
               label={shift.label}
               subLabel={shift.subLabel}
               selected={input.shiftType === shift.value}
-              onSelect={(value) => updateInput("shiftType", value)}
-              ariaLabel={`${shift.label} 근무 타입 선택`}
+              onSelect={() => selectShift(shift.value)}
+              ariaLabel={`${shift.label} ${shift.subLabel} 근무 타입 선택`}
             />
           ))}
         </div>
-        {input.shiftType === "custom" ? (
-          <input
-            value={input.customShift}
-            onChange={(event) => updateInput("customShift", event.target.value)}
-            placeholder="예: 08:00~17:00, 잔업 2시간"
-            aria-label="직접 입력 근무 시간"
-            className="mt-3 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm outline-none focus:border-leaf"
-          />
-        ) : null}
       </Section>
 
-      <Section title="2. 근무 패턴 선택">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <Section
+        title="2. 회사별 근무시간 조정"
+        description="같은 D/S/G/N이라도 회사마다 시간이 다르므로 실제 출근·퇴근 시간을 입력하세요."
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label className="text-sm font-bold text-ink">
+            근무 이름
+            <input
+              value={input.shiftName}
+              onChange={(event) => updateInput("shiftName", event.target.value)}
+              placeholder="예: A조 주간"
+              aria-label="근무 이름"
+              disabled={input.shiftType === "Off"}
+              className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
+            />
+          </label>
+          <label className="text-sm font-bold text-ink">
+            출근 시간
+            <input
+              type="time"
+              value={input.shiftStart}
+              onChange={(event) => updateInput("shiftStart", event.target.value)}
+              aria-label="출근 시간"
+              disabled={input.shiftType === "Off"}
+              className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
+            />
+          </label>
+          <label className="text-sm font-bold text-ink">
+            퇴근 시간
+            <input
+              type="time"
+              value={input.shiftEnd}
+              onChange={(event) => updateInput("shiftEnd", event.target.value)}
+              aria-label="퇴근 시간"
+              disabled={input.shiftType === "Off"}
+              className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
+            />
+          </label>
+        </div>
+        <label className="mt-3 block text-sm font-bold text-ink">
+          근무 메모
+          <input
+            value={input.shiftMemo}
+            onChange={(event) => updateInput("shiftMemo", event.target.value)}
+            placeholder="예: 잔업 가능성 있음, 통근 40분"
+            aria-label="근무 메모"
+            className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf"
+          />
+        </label>
+        <p className="mt-3 break-keep text-xs leading-5 text-slate-600">
+          퇴근 시간이 출근 시간보다 빠르면 다음 날 퇴근으로 보고 야간근무 판단에 반영합니다.
+        </p>
+      </Section>
+
+      <Section title="3. 근무 패턴 선택">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {patterns.map((pattern) => (
             <OptionButton
-              key={pattern}
-              label={pattern}
-              selected={input.pattern === pattern}
+              key={pattern.value}
+              label={pattern.value}
+              subLabel={pattern.subLabel}
+              selected={input.pattern === pattern.value}
               onSelect={(value) => updateInput("pattern", value)}
-              ariaLabel={`${pattern} 근무 패턴 선택`}
+              ariaLabel={`${pattern.value} 근무 패턴 선택`}
             />
           ))}
         </div>
@@ -140,7 +221,7 @@ export default function Home() {
         ) : null}
       </Section>
 
-      <Section title="3. 목표 선택">
+      <Section title="4. 목표 선택">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {goals.map((goal) => (
             <OptionButton
@@ -154,7 +235,7 @@ export default function Home() {
         </div>
       </Section>
 
-      <Section title="4. 루틴 생성">
+      <Section title="5. 루틴 생성">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           {routineTypes.map((routineType) => (
             <OptionButton
@@ -193,8 +274,15 @@ function InfoSections() {
     <div className="space-y-4">
       <Section title="교대근무 루틴이 어려운 이유">
         <p className="break-keep text-sm leading-6 text-slate-700">
-          4조3교대, 3조2교대, 야간근무는 매일 같은 시간에 자고 일어나기 어렵습니다.
+          교대근무는 회사마다 근무 이름, 시작 시간, 종료 시간, 휴무 흐름이 다릅니다.
           그래서 일반 일정 앱만으로는 수면, 식사, 운동, 공부, 부업 시간을 현실적으로 나누기 어렵습니다.
+        </p>
+      </Section>
+
+      <Section title="회사마다 다른 근무시간을 반영해야 하는 이유">
+        <p className="break-keep text-sm leading-6 text-slate-700">
+          같은 D, S, G, N 근무라도 출근과 퇴근 시간이 다르면 퇴근 후 회복 시간과 부업 가능 시간이 달라집니다.
+          ShiftMate Korea는 입력한 시간을 기준으로 야간 여부와 다음 날 퇴근 여부를 함께 봅니다.
         </p>
       </Section>
 
@@ -215,8 +303,12 @@ function InfoSections() {
       <Section title="자주 묻는 질문">
         <div className="space-y-3">
           <Faq
-            question="4조3교대 근무자도 매일 같은 루틴을 가져야 하나요?"
-            answer="매일 같은 시간표를 고정하기보다 D/S/G/Off에 맞춰 바꾸는 편이 현실적입니다. 이 서비스는 생활 루틴 참고용으로 근무 타입별 기준 루틴을 제안합니다."
+            question="4조3교대가 아니어도 사용할 수 있나요?"
+            answer="네. 3조2교대, 2교대, 주야비, 주주야야비비, 고정 근무, 직접 입력 근무표까지 생활 루틴 참고용으로 사용할 수 있습니다."
+          />
+          <Faq
+            question="회사 근무시간이 다른데 직접 바꿀 수 있나요?"
+            answer="네. 근무 이름, 출근 시간, 퇴근 시간, 근무 메모를 직접 입력할 수 있습니다. 입력값은 이 기기의 localStorage에 저장됩니다."
           />
           <Faq
             question="야간근무 후 바로 운동해도 되나요?"
@@ -224,7 +316,7 @@ function InfoSections() {
           />
           <Faq
             question="교대근무 중 부업 시간은 언제 잡는 게 좋나요?"
-            answer="피로도가 낮은 날은 퇴근 후 회복 뒤, Off day는 오후 집중 블록에 잡는 식으로 나눌 수 있습니다. 이 기준은 생활 루틴 참고용입니다."
+            answer="피로도가 낮은 날은 퇴근 후 회복 뒤, 휴무일은 오후 집중 블록에 잡는 식으로 나눌 수 있습니다. 이 기준은 생활 루틴 참고용입니다."
           />
           <Faq
             question="이 서비스는 수면 의학 조언인가요?"
