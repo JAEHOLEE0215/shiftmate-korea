@@ -38,11 +38,12 @@ export function GuidePanel() {
           <Faq question="이 서비스는 수면 의학 조언인가요?" answer="아닙니다. ShiftMate Korea는 의학적 조언이 아닌 생활 루틴 참고용 웹앱입니다." />
         </div>
       </Section>
-      <Section title="휴대폰 홈 화면에 추가해서 사용하세요">
+      <Section title="앱처럼 사용하기">
         <ul className="space-y-2 text-sm leading-6 text-slate-700">
           <li>iPhone Safari: 공유 버튼 → 홈 화면에 추가</li>
           <li>Android Chrome: 메뉴 → 홈 화면에 추가</li>
-          <li>앱 설치 없이 웹앱처럼 빠르게 다시 열 수 있습니다.</li>
+          <li>앱스토어 등록 전에도 웹앱처럼 빠르게 다시 열 수 있습니다.</li>
+          <li>월간 근무표와 기록 데이터는 이 기기 localStorage에 저장됩니다.</li>
         </ul>
       </Section>
     </div>

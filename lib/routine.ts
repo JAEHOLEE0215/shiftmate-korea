@@ -93,6 +93,24 @@ export type DailyRecord = {
 };
 
 export type DailyRecords = Record<string, DailyRecord>;
+export type MonthlySchedule = Record<string, ShiftType>;
+
+export type MonthlySummary = {
+  workDays: number;
+  nightDays: number;
+  offDays: number;
+  recoveryDays: number;
+  sideHustleHoursMin: number;
+  sideHustleHoursMax: number;
+  mostCommonShift: string;
+};
+
+export type CalendarDay = {
+  date: string;
+  dayNumber: number;
+  inCurrentMonth: boolean;
+  shiftType: ShiftType;
+};
 
 export const defaultChecklist: DailyChecklist = {
   recovery: false,
@@ -341,6 +359,159 @@ export function getRecentRecords(records: DailyRecords, limit = 7) {
   return Object.values(records)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
+}
+
+export function getMonthKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+export function getMonthTitle(date: Date) {
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
+}
+
+export function createMonthDays(monthDate: Date, schedule: MonthlySchedule): CalendarDay[] {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const start = new Date(year, month, 1 - startOffset);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const dateKey = getLocalDateKey(date);
+    return {
+      date: dateKey,
+      dayNumber: date.getDate(),
+      inCurrentMonth: date.getMonth() === month,
+      shiftType: schedule[dateKey] ?? "Off",
+    };
+  });
+}
+
+export function getShiftBadgeClass(shiftType: ShiftType) {
+  if (shiftType === "D") return "bg-leaf text-white";
+  if (shiftType === "S") return "bg-blue-600 text-white";
+  if (shiftType === "G") return "bg-purple-700 text-white";
+  if (shiftType === "N") return "bg-slate-800 text-white";
+  if (shiftType === "Off") return "bg-slate-200 text-slate-900";
+  return "bg-amber text-slate-950";
+}
+
+export function createMonthlySummary(
+  monthDate: Date,
+  schedule: MonthlySchedule,
+  baseInput: RoutineInput,
+  customTemplate?: Pick<RoutineInput, "shiftName" | "shiftStart" | "shiftEnd" | "shiftMemo">,
+): MonthlySummary {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const counts: Record<ShiftType, number> = { D: 0, S: 0, G: 0, N: 0, Off: 0, custom: 0 };
+  let workDays = 0;
+  let nightDays = 0;
+  let offDays = 0;
+  let recoveryDays = 0;
+  let minutesMin = 0;
+  let minutesMax = 0;
+
+  for (let day = 1; day <= lastDay; day += 1) {
+    const dateKey = getLocalDateKey(new Date(year, month, day));
+    const shift = schedule[dateKey] ?? "Off";
+    counts[shift] += 1;
+    const dayInput = createInputForShift(baseInput, shift, customTemplate);
+    const result = createRoutine(dayInput);
+    const night = shift === "G" || shift === "N" || result.fatigueScore >= 70;
+
+    if (shift === "Off") offDays += 1;
+    else workDays += 1;
+    if (shift === "G" || shift === "N") nightDays += 1;
+    if (night) recoveryDays += 1;
+    minutesMin += Math.max(15, Math.round(result.sideHustleTime.minutes * 0.65));
+    minutesMax += result.sideHustleTime.minutes;
+  }
+
+  const mostCommonShift = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] as ShiftType;
+
+  return {
+    workDays,
+    nightDays,
+    offDays,
+    recoveryDays,
+    sideHustleHoursMin: Math.round(minutesMin / 60),
+    sideHustleHoursMax: Math.max(1, Math.round(minutesMax / 60)),
+    mostCommonShift: getShiftShortLabel(mostCommonShift),
+  };
+}
+
+export function generateMonthlyScheduleByPattern({
+  startDate,
+  pattern,
+  customPattern,
+  days,
+}: {
+  startDate: string;
+  pattern: string;
+  customPattern: string;
+  days: number;
+}) {
+  const patternItems = resolvePattern(pattern, customPattern);
+  const result: MonthlySchedule = {};
+  const start = new Date(`${startDate}T00:00:00`);
+
+  for (let index = 0; index < days; index += 1) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    result[getLocalDateKey(date)] = patternItems[index % patternItems.length];
+  }
+
+  return result;
+}
+
+export function formatMonthlyScheduleText(monthDate: Date, schedule: MonthlySchedule, summary: MonthlySummary) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const rows = Array.from({ length: lastDay }, (_, index) => {
+    const date = new Date(year, month, index + 1);
+    const shift = schedule[getLocalDateKey(date)] ?? "Off";
+    return `${index + 1}일 ${getShiftShortLabel(shift).split(" ")[0]}`;
+  }).join(" / ");
+
+  return `[ShiftMate Korea 월간 근무표]
+${getMonthTitle(monthDate)}
+${rows}
+야간근무 ${summary.nightDays}일 · 휴무 ${summary.offDays}일
+예상 부업 가능 시간 ${summary.sideHustleHoursMin}~${summary.sideHustleHoursMax}시간
+생활 루틴 참고용입니다.`;
+}
+
+function resolvePattern(pattern: string, customPattern: string): ShiftType[] {
+  if (pattern === "4조3교대 기본") return ["D", "S", "G", "Off"];
+  if (pattern === "3조2교대 기본") return ["D", "D", "N", "N", "Off", "Off"];
+  if (pattern === "2교대 기본") return ["D", "D", "N", "N", "Off", "Off"];
+  if (pattern === "주야비") return ["D", "N", "Off"];
+  if (pattern === "주주야야비비") return ["D", "D", "N", "N", "Off", "Off"];
+
+  const parsed = customPattern
+    .split(",")
+    .map((item) => item.trim())
+    .map(parseShiftType)
+    .filter((item): item is ShiftType => Boolean(item));
+
+  return parsed.length > 0 ? parsed : ["D", "S", "G", "Off"];
+}
+
+function parseShiftType(value: string): ShiftType | null {
+  if (value === "D") return "D";
+  if (value === "S") return "S";
+  if (value === "G") return "G";
+  if (value === "N") return "N";
+  if (value.toLowerCase() === "off") return "Off";
+  if (value.toLowerCase() === "custom") return "custom";
+  return null;
 }
 
 export function createWeeklySummary(

@@ -24,6 +24,7 @@ export const metadata: Metadata = {
     locale: "ko_KR",
     type: "website",
   },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

@@ -44,9 +44,10 @@ export function WeeklySchedule({
   return (
     <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-soft">
       <div className="mb-3">
-        <p className="text-xs font-bold text-leaf">주간 근무표</p>
-        <h2 className="mt-1 text-base font-bold text-ink">월요일부터 일요일까지 근무를 저장하세요</h2>
+        <p className="text-xs font-bold text-leaf">이번 주 빠른 편집</p>
+        <h2 className="mt-1 text-base font-bold text-ink">월요일부터 일요일까지 근무를 빠르게 조정하세요</h2>
         <p className="mt-1 break-keep text-sm leading-6 text-slate-700">
+          장기 근무표는 월간 캘린더에서 관리하고, 이 탭에서는 이번 주 흐름을 빠르게 수정합니다.
           직접 입력 근무시간은 현재 저장된 사용자 정의 시간을 사용합니다.
         </p>
         {saved ? (

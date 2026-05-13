@@ -1,6 +1,6 @@
 "use client";
 
-export type AppTab = "today" | "week" | "sideHustle" | "handover" | "guide";
+export type AppTab = "today" | "month" | "week" | "sideHustle" | "handover" | "guide";
 
 type AppTabsProps = {
   activeTab: AppTab;
@@ -9,6 +9,7 @@ type AppTabsProps = {
 
 const tabs: Array<{ id: AppTab; label: string; badge?: string }> = [
   { id: "today", label: "오늘 루틴" },
+  { id: "month", label: "월간 캘린더" },
   { id: "week", label: "주간표" },
   { id: "sideHustle", label: "부업 시간", badge: "핵심" },
   { id: "handover", label: "인수인계" },

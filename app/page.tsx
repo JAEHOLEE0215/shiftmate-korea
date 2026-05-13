@@ -5,6 +5,7 @@ import { AppTabs, type AppTab } from "@/components/AppTabs";
 import { DailyCheckIn } from "@/components/DailyCheckIn";
 import { GuidePanel } from "@/components/GuidePanel";
 import { HandoverPanel } from "@/components/HandoverPanel";
+import { MonthlyCalendar } from "@/components/MonthlyCalendar";
 import { OptionButton } from "@/components/OptionButton";
 import { RecentRecords } from "@/components/RecentRecords";
 import { RoutineResult } from "@/components/RoutineResult";
@@ -14,6 +15,7 @@ import { SummaryDashboard } from "@/components/SummaryDashboard";
 import { WeeklySchedule } from "@/components/WeeklySchedule";
 import {
   createInputForShift,
+  createMonthlySummary,
   createDailyRecord,
   createRoutine,
   createWeeklySummary,
@@ -22,6 +24,7 @@ import {
   defaultInput,
   defaultChecklist,
   formatRoutineText,
+  formatMonthlyScheduleText,
   getLocalDateKey,
   getRecentRecords,
   getShiftShortLabel,
@@ -32,6 +35,7 @@ import {
   type DailyChecklist,
   type DailyRecords,
   type GoalType,
+  type MonthlySchedule,
   type PatternType,
   type RoutineInput,
   type RoutineType,
@@ -45,6 +49,8 @@ const storageKey = "shiftmate-korea-routine";
 const weeklyStorageKey = "shiftmate-korea-weekly-schedule";
 const customTemplateStorageKey = "shiftmate-korea-custom-shift-template";
 const dailyRecordsStorageKey = "shiftmate-korea-daily-records";
+const monthlyStorageKey = "shiftmate-korea-monthly-schedule";
+const selectedDateStorageKey = "shiftmate-korea-selected-date";
 
 const shifts: Array<{ value: ShiftType; label: ShiftType; subLabel: string }> = [
   { value: "D", label: "D", subLabel: "주간" },
@@ -85,20 +91,24 @@ const heroBadges = [
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("today");
+  const [storageReady, setStorageReady] = useState(false);
   const [showWorkTimeSettings, setShowWorkTimeSettings] = useState(false);
   const [input, setInput] = useState<RoutineInput>(defaultInput);
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleType>(defaultWeeklySchedule);
+  const [monthlySchedule, setMonthlySchedule] = useState<MonthlySchedule>({});
+  const [monthDate, setMonthDate] = useState(new Date());
+  const [selectedDateKey, setSelectedDateKey] = useState(getLocalDateKey());
   const [customTemplate, setCustomTemplate] = useState({
     shiftName: shiftPresets.custom.name,
     shiftStart: shiftPresets.custom.start,
     shiftEnd: shiftPresets.custom.end,
     shiftMemo: "",
   });
-  const [todayIndex, setTodayIndex] = useState(0);
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [todayIndex, setTodayIndex] = useState(getTodayWeekdayIndex());
+  const [selectedDayIndex, setSelectedDayIndex] = useState(getTodayWeekdayIndex());
   const [weeklySaved, setWeeklySaved] = useState(false);
   const [dailyRecords, setDailyRecords] = useState<DailyRecords>({});
-  const [todayDateKey, setTodayDateKey] = useState("");
+  const [todayDateKey, setTodayDateKey] = useState(getLocalDateKey());
   const [condition, setCondition] = useState<ConditionType>("보통");
   const [conditionMemo, setConditionMemo] = useState("");
   const [checklist, setChecklist] = useState<DailyChecklist>(defaultChecklist);
@@ -112,8 +122,13 @@ export default function Home() {
     () => formatWeeklySummaryText(weeklySchedule, weeklySummary),
     [weeklySchedule, weeklySummary],
   );
+  const monthlySummary = useMemo(
+    () => createMonthlySummary(monthDate, monthlySchedule, input, customTemplate),
+    [monthDate, monthlySchedule, input, customTemplate],
+  );
   const selectedDay = weekdayLabels[selectedDayIndex];
   const todayDay = weekdayLabels[todayIndex];
+  const selectedDateLabel = `${selectedDateKey} · ${selectedDay.full}`;
   const completionRate = calculateCompletionRate(checklist);
   const recentRecords = useMemo(() => getRecentRecords(dailyRecords), [dailyRecords]);
 
@@ -137,12 +152,14 @@ export default function Home() {
     const dateKey = getLocalDateKey();
     setTodayIndex(browserTodayIndex);
     setSelectedDayIndex(browserTodayIndex);
+    setSelectedDateKey(dateKey);
     setTodayDateKey(dateKey);
 
+    let parsedWeekly: WeeklyScheduleType = defaultWeeklySchedule;
     const savedWeekly = window.localStorage.getItem(weeklyStorageKey);
     if (savedWeekly) {
       try {
-        const parsedWeekly = { ...defaultWeeklySchedule, ...JSON.parse(savedWeekly) };
+        parsedWeekly = { ...defaultWeeklySchedule, ...JSON.parse(savedWeekly) };
         setWeeklySchedule(parsedWeekly);
         const todayShift = parsedWeekly[weekdayLabels[browserTodayIndex].key];
         setInput((current) => createInputForShift(current, todayShift, customTemplate));
@@ -175,6 +192,28 @@ export default function Home() {
         window.localStorage.removeItem(dailyRecordsStorageKey);
       }
     }
+
+    const savedMonthly = window.localStorage.getItem(monthlyStorageKey);
+    let parsedMonthly: MonthlySchedule = {};
+    if (savedMonthly) {
+      try {
+        parsedMonthly = JSON.parse(savedMonthly) as MonthlySchedule;
+        setMonthlySchedule(parsedMonthly);
+      } catch {
+        window.localStorage.removeItem(monthlyStorageKey);
+      }
+    }
+
+    const savedSelectedDate = window.localStorage.getItem(selectedDateStorageKey);
+    const nextSelectedDate = savedSelectedDate || dateKey;
+    const selectedDate = new Date(`${nextSelectedDate}T00:00:00`);
+    const selectedIndex = getTodayWeekdayIndex(selectedDate);
+    const selectedShift = parsedMonthly[nextSelectedDate] ?? parsedWeekly[weekdayLabels[selectedIndex].key];
+    setSelectedDateKey(nextSelectedDate);
+    setSelectedDayIndex(selectedIndex);
+    setMonthDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    setInput((current) => createInputForShift(current, selectedShift, customTemplate));
+    setStorageReady(true);
   }, []);
 
   useEffect(() => {
@@ -185,6 +224,16 @@ export default function Home() {
   useEffect(() => {
     window.localStorage.setItem(customTemplateStorageKey, JSON.stringify(customTemplate));
   }, [customTemplate]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    window.localStorage.setItem(monthlyStorageKey, JSON.stringify(monthlySchedule));
+  }, [monthlySchedule, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    window.localStorage.setItem(selectedDateStorageKey, selectedDateKey);
+  }, [selectedDateKey, storageReady]);
 
   useEffect(() => {
     if (!todayDateKey) return;
@@ -228,8 +277,24 @@ export default function Home() {
 
   function selectWeeklyDay(index: number) {
     const day = weekdayLabels[index];
+    const todayDate = new Date();
+    const selectedDate = new Date(todayDate);
+    selectedDate.setDate(todayDate.getDate() + (index - todayIndex));
+    setSelectedDateKey(getLocalDateKey(selectedDate));
     setSelectedDayIndex(index);
     setInput((current) => createInputForShift(current, weeklySchedule[day.key], customTemplate));
+    setCopied(false);
+  }
+
+  function selectMonthlyDate(dateKey: string) {
+    const selectedDate = new Date(`${dateKey}T00:00:00`);
+    const selectedIndex = getTodayWeekdayIndex(selectedDate);
+    const fallbackShift = weeklySchedule[weekdayLabels[selectedIndex].key];
+    const nextShift = monthlySchedule[dateKey] ?? fallbackShift;
+    setSelectedDateKey(dateKey);
+    setSelectedDayIndex(selectedIndex);
+    setMonthDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    setInput((current) => createInputForShift(current, nextShift, customTemplate));
     setCopied(false);
   }
 
@@ -257,9 +322,25 @@ export default function Home() {
     window.localStorage.removeItem(dailyRecordsStorageKey);
   }
 
+  function applyGeneratedMonthlySchedule(generatedSchedule: MonthlySchedule) {
+    setMonthlySchedule((current) => ({ ...current, ...generatedSchedule }));
+  }
+
+  function moveMonth(offset: number) {
+    setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  }
+
   async function copyRoutine() {
     await navigator.clipboard.writeText(formatRoutineText(input, result, weeklySummaryText));
     setCopied(true);
+  }
+
+  async function copyMonthlySchedule() {
+    await navigator.clipboard.writeText(formatMonthlyScheduleText(monthDate, monthlySchedule, monthlySummary));
+  }
+
+  async function copySelectedDateRoutine() {
+    await navigator.clipboard.writeText(formatRoutineText(input, result, weeklySummaryText));
   }
 
   return (
@@ -291,8 +372,8 @@ export default function Home() {
         input={input}
         result={result}
         todayKey={todayDay.key}
-        selectedDayLabel={selectedDay.full}
-        selectedIsToday={selectedDayIndex === todayIndex}
+        selectedDayLabel={selectedDateLabel}
+        selectedIsToday={selectedDateKey === todayDateKey}
         weeklySchedule={weeklySchedule}
         condition={condition}
         completionRate={completionRate}
@@ -327,12 +408,30 @@ export default function Home() {
             result={result}
             onCopy={copyRoutine}
             copied={copied}
-            selectedDayLabel={selectedDay.full}
-            isTodaySelected={selectedDayIndex === todayIndex}
+            selectedDayLabel={selectedDateLabel}
+            isTodaySelected={selectedDateKey === todayDateKey}
             weeklySummaryText={weeklySummaryText}
           />
           <RecentRecords records={recentRecords} onReset={resetDailyRecords} />
         </TodayRoutinePanel>
+      ) : null}
+
+      {activeTab === "month" ? (
+        <MonthlyCalendar
+          monthDate={monthDate}
+          selectedDate={selectedDateKey}
+          todayDate={todayDateKey}
+          schedule={monthlySchedule}
+          summary={monthlySummary}
+          selectedResult={result}
+          selectedShiftType={input.shiftType}
+          onPrevMonth={() => moveMonth(-1)}
+          onNextMonth={() => moveMonth(1)}
+          onSelectDate={selectMonthlyDate}
+          onGenerateSchedule={applyGeneratedMonthlySchedule}
+          onCopyMonth={copyMonthlySchedule}
+          onCopySelectedDate={copySelectedDateRoutine}
+        />
       ) : null}
 
       {activeTab === "week" ? (
