@@ -78,7 +78,7 @@ export default function Home() {
         <h1 className="mt-1 text-3xl font-extrabold leading-10 text-ink">
           4조3교대·야간근무자를 위한 현실 루틴 플래너
         </h1>
-        <p className="mt-3 break-keep text-sm leading-6 text-ink/65">
+        <p className="mt-3 break-keep text-sm leading-6 text-slate-700">
           D/S/G/Off 근무표에 맞춰 수면, 운동, 공부, 부업 시간을 오늘 바로 실행 가능한 루틴으로 정리합니다.
         </p>
         <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm font-bold text-ink shadow-soft">
@@ -179,7 +179,7 @@ export default function Home() {
 
       <InfoSections />
 
-      <footer className="pb-5 text-xs leading-5 text-ink/55">
+      <footer className="pb-5 text-xs leading-5 text-slate-600">
         <p>의학적 조언이 아닌 생활 루틴 참고용입니다.</p>
         <p>수면 부족, 무리한 운동, 과로를 권장하지 않습니다.</p>
         <p>무료 웹앱이며 로그인과 결제 기능은 없습니다.</p>
@@ -192,21 +192,21 @@ function InfoSections() {
   return (
     <div className="space-y-4">
       <Section title="교대근무 루틴이 어려운 이유">
-        <p className="break-keep text-sm leading-6 text-ink/65">
+        <p className="break-keep text-sm leading-6 text-slate-700">
           4조3교대, 3조2교대, 야간근무는 매일 같은 시간에 자고 일어나기 어렵습니다.
           그래서 일반 일정 앱만으로는 수면, 식사, 운동, 공부, 부업 시간을 현실적으로 나누기 어렵습니다.
         </p>
       </Section>
 
       <Section title="야간근무 후에는 회복 블록이 먼저입니다">
-        <p className="break-keep text-sm leading-6 text-ink/65">
+        <p className="break-keep text-sm leading-6 text-slate-700">
           야간근무 후에는 무리한 운동이나 긴 부업보다 수면, 식사, 가벼운 정리부터 배치하는 편이 현실적입니다.
           이 내용은 생활 루틴 참고용이며 개인 상황에 맞게 줄여서 사용하세요.
         </p>
       </Section>
 
       <Section title="교대근무자가 부업 시간을 만들 때 주의할 점">
-        <p className="break-keep text-sm leading-6 text-ink/65">
+        <p className="break-keep text-sm leading-6 text-slate-700">
           피로도가 높은 날에는 긴 작업보다 짧은 메모, 아이디어 정리, 가벼운 수정 작업처럼 부담 낮은 작업을 추천합니다.
           작은 결과물을 반복해서 쌓는 방식이 교대근무 일정에 더 잘 맞습니다.
         </p>
@@ -234,7 +234,7 @@ function InfoSections() {
       </Section>
 
       <Section title="휴대폰 홈 화면에 추가해서 사용하세요">
-        <ul className="space-y-2 text-sm leading-6 text-ink/65">
+        <ul className="space-y-2 text-sm leading-6 text-slate-700">
           <li>iPhone Safari: 공유 버튼 → 홈 화면에 추가</li>
           <li>Android Chrome: 메뉴 → 홈 화면에 추가</li>
           <li>앱 설치 없이 웹앱처럼 빠르게 다시 열 수 있습니다.</li>
@@ -248,7 +248,7 @@ function Faq({ question, answer }: { question: string; answer: string }) {
   return (
     <article className="rounded-lg bg-mist p-3">
       <h3 className="text-sm font-bold text-ink">{question}</h3>
-      <p className="mt-1 break-keep text-sm leading-6 text-ink/65">{answer}</p>
+      <p className="mt-1 break-keep text-sm leading-6 text-slate-700">{answer}</p>
     </article>
   );
 }
