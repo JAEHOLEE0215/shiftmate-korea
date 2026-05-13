@@ -14,6 +14,9 @@ type RoutineResultProps = {
   result: RoutineResultType;
   onCopy: () => void;
   copied: boolean;
+  selectedDayLabel?: string;
+  isTodaySelected?: boolean;
+  weeklySummaryText?: string;
 };
 
 const toneClass = {
@@ -29,7 +32,15 @@ function fatigueColor(score: number) {
   return "bg-leaf text-white";
 }
 
-export function RoutineResult({ input, result, onCopy, copied }: RoutineResultProps) {
+export function RoutineResult({
+  input,
+  result,
+  onCopy,
+  copied,
+  selectedDayLabel,
+  isTodaySelected = true,
+  weeklySummaryText,
+}: RoutineResultProps) {
   const [memoCopied, setMemoCopied] = useState(false);
 
   useEffect(() => {
@@ -50,6 +61,12 @@ export function RoutineResult({ input, result, onCopy, copied }: RoutineResultPr
     >
       <div className="rounded-lg border border-slate-600/70 bg-slate-900 p-3">
         <p className="text-xs font-bold text-amber">오늘 요약</p>
+        {selectedDayLabel ? (
+          <p className="mt-2 text-sm font-bold text-slate-200">
+            선택 요일: {selectedDayLabel}
+            {isTodaySelected ? " · 오늘 기준 루틴입니다." : " · 선택한 요일 기준 루틴입니다."}
+          </p>
+        ) : null}
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
           <SummaryItem label="근무" value={getShiftText(input)} />
           <SummaryItem label="패턴" value={getPatternText(input)} />
@@ -184,7 +201,7 @@ export function RoutineResult({ input, result, onCopy, copied }: RoutineResultPr
       <textarea
         className="sr-only"
         readOnly
-        value={formatRoutineText(input, result)}
+        value={formatRoutineText(input, result, weeklySummaryText)}
         aria-label="복사용 루틴 텍스트"
       />
     </section>

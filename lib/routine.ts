@@ -63,6 +63,39 @@ export type RoutineResult = {
   coreRoutine: string;
 };
 
+export type WeekdayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+export type WeeklySchedule = Record<WeekdayKey, ShiftType>;
+
+export type WeeklySummary = {
+  nightCount: number;
+  offCount: number;
+  recoveryDays: number;
+  sideHustleFocusMin: number;
+  sideHustleFocusMax: number;
+  sideHustleHoursMin: number;
+  sideHustleHoursMax: number;
+};
+
+export const weekdayLabels: Array<{ key: WeekdayKey; short: string; full: string }> = [
+  { key: "mon", short: "월", full: "월요일" },
+  { key: "tue", short: "화", full: "화요일" },
+  { key: "wed", short: "수", full: "수요일" },
+  { key: "thu", short: "목", full: "목요일" },
+  { key: "fri", short: "금", full: "금요일" },
+  { key: "sat", short: "토", full: "토요일" },
+  { key: "sun", short: "일", full: "일요일" },
+];
+
+export const defaultWeeklySchedule: WeeklySchedule = {
+  mon: "D",
+  tue: "S",
+  wed: "G",
+  thu: "Off",
+  fri: "D",
+  sat: "S",
+  sun: "Off",
+};
+
 type ScheduleTuple = [string, string, string, ScheduleItem["tone"]];
 type RoutineBase = Omit<
   RoutineResult,
@@ -150,9 +183,10 @@ export function formatHandoverMemo(result: RoutineResult) {
   return result.handoverMemo.lines.join("\n");
 }
 
-export function formatRoutineText(input: RoutineInput, result: RoutineResult) {
+export function formatRoutineText(input: RoutineInput, result: RoutineResult, weeklySummaryText?: string) {
   const coreSteps = result.schedule.map((item, index) => `${index + 1}. ${item.title}`).join("\n");
   const actions = result.actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
+  const weeklyText = weeklySummaryText ? `\n\n${weeklySummaryText}` : "";
 
   return `[ShiftMate Korea 루틴]
 근무: ${getShiftText(input)}
@@ -166,10 +200,120 @@ ${coreSteps}
 
 추천 행동:
 ${actions}
+${weeklyText}
 
 주의:
 의학적 조언이 아닌 생활 루틴 참고용입니다.
 수면 부족, 무리한 운동, 과로를 권장하지 않습니다.`;
+}
+
+export function createInputForShift(
+  base: RoutineInput,
+  shiftType: ShiftType,
+  customTemplate?: Pick<RoutineInput, "shiftName" | "shiftStart" | "shiftEnd" | "shiftMemo">,
+): RoutineInput {
+  if (shiftType === "custom" && customTemplate) {
+    return {
+      ...base,
+      shiftType,
+      shiftName: customTemplate.shiftName || shiftPresets.custom.name,
+      shiftStart: customTemplate.shiftStart || shiftPresets.custom.start,
+      shiftEnd: customTemplate.shiftEnd || shiftPresets.custom.end,
+      shiftMemo: customTemplate.shiftMemo,
+    };
+  }
+
+  const preset = shiftPresets[shiftType];
+  return {
+    ...base,
+    shiftType,
+    shiftName: preset.name,
+    shiftStart: preset.start,
+    shiftEnd: preset.end,
+    shiftMemo: shiftType === "Off" ? "" : base.shiftMemo,
+  };
+}
+
+export function getShiftShortLabel(shiftType: ShiftType) {
+  if (shiftType === "D") return "D 주간";
+  if (shiftType === "S") return "S 오후";
+  if (shiftType === "G") return "G 야간";
+  if (shiftType === "N") return "N 야간";
+  if (shiftType === "Off") return "Off 휴무";
+  return "직접 입력";
+}
+
+export function getTodayWeekdayIndex(date = new Date()) {
+  const day = date.getDay();
+  return day === 0 ? 6 : day - 1;
+}
+
+export function createWeeklySummary(
+  schedule: WeeklySchedule,
+  baseInput: RoutineInput,
+  customTemplate?: Pick<RoutineInput, "shiftName" | "shiftStart" | "shiftEnd" | "shiftMemo">,
+): WeeklySummary {
+  let nightCount = 0;
+  let offCount = 0;
+  let recoveryDays = 0;
+  let focusDays = 0;
+  let minutesMin = 0;
+  let minutesMax = 0;
+
+  weekdayLabels.forEach((day) => {
+    const dayInput = createInputForShift(baseInput, schedule[day.key], customTemplate);
+    const result = createRoutine(dayInput);
+    const isNight = isNightShift(dayInput) || endsNextDay(dayInput);
+    const isRest = isOff(dayInput);
+
+    if (isNight) nightCount += 1;
+    if (isRest) offCount += 1;
+    if (result.fatigueScore >= 70 || isNight) recoveryDays += 1;
+    if (result.sideHustleTime.minutes >= 60 && result.fatigueScore < 70) focusDays += 1;
+
+    const minutes = result.sideHustleTime.minutes;
+    minutesMin += Math.max(15, Math.round(minutes * 0.65));
+    minutesMax += minutes;
+  });
+
+  return {
+    nightCount,
+    offCount,
+    recoveryDays,
+    sideHustleFocusMin: Math.max(0, Math.floor(focusDays * 0.7)),
+    sideHustleFocusMax: focusDays,
+    sideHustleHoursMin: Math.round(minutesMin / 60),
+    sideHustleHoursMax: Math.max(1, Math.round(minutesMax / 60)),
+  };
+}
+
+export function createDayPreview(shiftType: ShiftType) {
+  if (shiftType === "D") {
+    return ["퇴근 후 회복 식사", "30~60분 부업 가능", "수면 준비"];
+  }
+  if (shiftType === "S") {
+    return ["오전 공부/운동 가능", "출근 전 가벼운 정리", "퇴근 후 짧은 휴식"];
+  }
+  if (shiftType === "G" || shiftType === "N") {
+    return ["출근 전 긴 휴식", "퇴근 후 회복 수면 우선", "부업은 메모형 작업만 추천"];
+  }
+  if (shiftType === "Off") {
+    return ["회복 블록 먼저 확보", "1~3시간 집중 작업 가능", "다음 근무 준비"];
+  }
+  return ["직접 입력 시간 기준", "퇴근 후 회복 먼저", "짧은 목표 활동 배치"];
+}
+
+export function formatWeeklyScheduleLine(schedule: WeeklySchedule) {
+  return weekdayLabels
+    .map((day) => `${day.short} ${getShiftShortLabel(schedule[day.key]).split(" ")[0]}`)
+    .join(" / ");
+}
+
+export function formatWeeklySummaryText(schedule: WeeklySchedule, summary: WeeklySummary) {
+  return `[이번 주 근무표 요약]
+${formatWeeklyScheduleLine(schedule)}
+야간근무 ${summary.nightCount}일 · 휴무 ${summary.offCount}일
+예상 부업 가능 시간 ${summary.sideHustleHoursMin}~${summary.sideHustleHoursMax}시간`;
 }
 
 function workdayRoutine(input: RoutineInput): RoutineResult {

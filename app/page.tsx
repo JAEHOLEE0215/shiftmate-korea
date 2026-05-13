@@ -4,19 +4,31 @@ import { useEffect, useMemo, useState } from "react";
 import { OptionButton } from "@/components/OptionButton";
 import { RoutineResult } from "@/components/RoutineResult";
 import { Section } from "@/components/Section";
+import { WeeklySchedule } from "@/components/WeeklySchedule";
 import {
+  createInputForShift,
   createRoutine,
+  createWeeklySummary,
+  defaultWeeklySchedule,
+  formatWeeklySummaryText,
   defaultInput,
   formatRoutineText,
+  getShiftShortLabel,
+  getTodayWeekdayIndex,
   shiftPresets,
   type GoalType,
   type PatternType,
   type RoutineInput,
   type RoutineType,
   type ShiftType,
+  type WeekdayKey,
+  type WeeklySchedule as WeeklyScheduleType,
+  weekdayLabels,
 } from "@/lib/routine";
 
 const storageKey = "shiftmate-korea-routine";
+const weeklyStorageKey = "shiftmate-korea-weekly-schedule";
+const customTemplateStorageKey = "shiftmate-korea-custom-shift-template";
 
 const shifts: Array<{ value: ShiftType; label: ShiftType; subLabel: string }> = [
   { value: "D", label: "D", subLabel: "주간" },
@@ -57,8 +69,28 @@ const heroBadges = [
 
 export default function Home() {
   const [input, setInput] = useState<RoutineInput>(defaultInput);
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleType>(defaultWeeklySchedule);
+  const [customTemplate, setCustomTemplate] = useState({
+    shiftName: shiftPresets.custom.name,
+    shiftStart: shiftPresets.custom.start,
+    shiftEnd: shiftPresets.custom.end,
+    shiftMemo: "",
+  });
+  const [todayIndex, setTodayIndex] = useState(0);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [weeklySaved, setWeeklySaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const result = useMemo(() => createRoutine(input), [input]);
+  const weeklySummary = useMemo(
+    () => createWeeklySummary(weeklySchedule, input, customTemplate),
+    [weeklySchedule, input, customTemplate],
+  );
+  const weeklySummaryText = useMemo(
+    () => formatWeeklySummaryText(weeklySchedule, weeklySummary),
+    [weeklySchedule, weeklySummary],
+  );
+  const selectedDay = weekdayLabels[selectedDayIndex];
+  const todayDay = weekdayLabels[todayIndex];
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
@@ -76,6 +108,42 @@ export default function Home() {
   }, [input]);
 
   useEffect(() => {
+    const browserTodayIndex = getTodayWeekdayIndex();
+    setTodayIndex(browserTodayIndex);
+    setSelectedDayIndex(browserTodayIndex);
+
+    const savedWeekly = window.localStorage.getItem(weeklyStorageKey);
+    if (savedWeekly) {
+      try {
+        const parsedWeekly = { ...defaultWeeklySchedule, ...JSON.parse(savedWeekly) };
+        setWeeklySchedule(parsedWeekly);
+        const todayShift = parsedWeekly[weekdayLabels[browserTodayIndex].key];
+        setInput((current) => createInputForShift(current, todayShift, customTemplate));
+      } catch {
+        window.localStorage.removeItem(weeklyStorageKey);
+      }
+    }
+
+    const savedCustomTemplate = window.localStorage.getItem(customTemplateStorageKey);
+    if (savedCustomTemplate) {
+      try {
+        setCustomTemplate({ ...customTemplate, ...JSON.parse(savedCustomTemplate) });
+      } catch {
+        window.localStorage.removeItem(customTemplateStorageKey);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(weeklyStorageKey, JSON.stringify(weeklySchedule));
+    setWeeklySaved(true);
+  }, [weeklySchedule]);
+
+  useEffect(() => {
+    window.localStorage.setItem(customTemplateStorageKey, JSON.stringify(customTemplate));
+  }, [customTemplate]);
+
+  useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(false), 1600);
     return () => window.clearTimeout(timer);
@@ -83,23 +151,45 @@ export default function Home() {
 
   function updateInput<T extends keyof RoutineInput>(key: T, value: RoutineInput[T]) {
     setInput((current) => ({ ...current, [key]: value }));
+    if (
+      input.shiftType === "custom" &&
+      (key === "shiftName" || key === "shiftStart" || key === "shiftEnd" || key === "shiftMemo")
+    ) {
+      setCustomTemplate((current) => ({ ...current, [key]: value }));
+    }
     setCopied(false);
   }
 
   function selectShift(value: ShiftType) {
-    const preset = shiftPresets[value];
-    setInput((current) => ({
-      ...current,
-      shiftType: value,
-      shiftName: preset.name,
-      shiftStart: preset.start,
-      shiftEnd: preset.end,
-    }));
+    setInput((current) => createInputForShift(current, value, customTemplate));
     setCopied(false);
   }
 
+  function selectWeeklyDay(index: number) {
+    const day = weekdayLabels[index];
+    setSelectedDayIndex(index);
+    setInput((current) => createInputForShift(current, weeklySchedule[day.key], customTemplate));
+    setCopied(false);
+  }
+
+  function changeWeeklyDay(day: WeekdayKey, shift: ShiftType) {
+    setWeeklySchedule((current) => ({ ...current, [day]: shift }));
+    const changedIndex = weekdayLabels.findIndex((weekday) => weekday.key === day);
+    if (changedIndex === selectedDayIndex) {
+      setInput((current) => createInputForShift(current, shift, customTemplate));
+    }
+  }
+
+  function resetWeeklySchedule() {
+    setWeeklySchedule(defaultWeeklySchedule);
+    window.localStorage.removeItem(weeklyStorageKey);
+    const todayShift = defaultWeeklySchedule[weekdayLabels[todayIndex].key];
+    setSelectedDayIndex(todayIndex);
+    setInput((current) => createInputForShift(current, todayShift, customTemplate));
+  }
+
   async function copyRoutine() {
-    await navigator.clipboard.writeText(formatRoutineText(input, result));
+    await navigator.clipboard.writeText(formatRoutineText(input, result, weeklySummaryText));
     setCopied(true);
   }
 
@@ -142,6 +232,27 @@ export default function Home() {
           ))}
         </div>
       </Section>
+
+      <WeeklySchedule
+        schedule={weeklySchedule}
+        summary={weeklySummary}
+        todayIndex={todayIndex}
+        selectedDayIndex={selectedDayIndex}
+        onChangeDay={changeWeeklyDay}
+        onSelectDay={selectWeeklyDay}
+        onReset={resetWeeklySchedule}
+        saved={weeklySaved}
+      />
+
+      <div className="rounded-lg border border-leaf/20 bg-white p-4 shadow-soft">
+        <p className="text-sm font-bold text-ink">
+          오늘은 {todayDay.full} · 선택된 근무: {getShiftShortLabel(weeklySchedule[todayDay.key])}
+        </p>
+        <p className="mt-1 break-keep text-sm leading-6 text-slate-700">
+          선택 요일: {selectedDay.full}
+          {selectedDayIndex === todayIndex ? " · 오늘 기준 루틴입니다." : " · 선택한 요일 기준 루틴입니다."}
+        </p>
+      </div>
 
       <Section
         title="2. 회사별 근무시간 조정"
@@ -256,7 +367,15 @@ export default function Home() {
         </a>
       </Section>
 
-      <RoutineResult input={input} result={result} onCopy={copyRoutine} copied={copied} />
+      <RoutineResult
+        input={input}
+        result={result}
+        onCopy={copyRoutine}
+        copied={copied}
+        selectedDayLabel={selectedDay.full}
+        isTodaySelected={selectedDayIndex === todayIndex}
+        weeklySummaryText={weeklySummaryText}
+      />
 
       <InfoSections />
 
