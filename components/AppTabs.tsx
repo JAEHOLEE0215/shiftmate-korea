@@ -7,10 +7,10 @@ type AppTabsProps = {
   onChange: (tab: AppTab) => void;
 };
 
-const tabs: Array<{ id: AppTab; label: string }> = [
+const tabs: Array<{ id: AppTab; label: string; badge?: string }> = [
   { id: "today", label: "오늘 루틴" },
   { id: "week", label: "주간표" },
-  { id: "sideHustle", label: "부업 시간" },
+  { id: "sideHustle", label: "부업 시간", badge: "핵심" },
   { id: "handover", label: "인수인계" },
   { id: "guide", label: "가이드" },
 ];
@@ -32,6 +32,15 @@ export function AppTabs({ activeTab, onChange }: AppTabsProps) {
               }`}
             >
               {tab.label}
+              {tab.badge ? (
+                <span
+                  className={`ml-2 rounded px-1.5 py-0.5 text-[11px] ${
+                    selected ? "bg-white/20 text-white" : "bg-amber/30 text-ink"
+                  }`}
+                >
+                  {tab.badge}
+                </span>
+              ) : null}
               {selected ? <span className="ml-2 text-xs">선택됨</span> : null}
             </button>
           );

@@ -14,14 +14,22 @@ export function SideHustlePanel({ result, weeklySummary }: SideHustlePanelProps)
     <section className="space-y-4">
       <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-soft">
         <p className="text-xs font-bold text-leaf">부업 시간</p>
-        <h2 className="mt-1 text-xl font-extrabold text-ink">교대근무자를 위한 오늘의 부업 판단</h2>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <h2 className="mt-1 text-xl font-extrabold text-ink">작은 작업 시간을 찾는 도구</h2>
+        <p className="mt-2 break-keep text-sm leading-6 text-slate-700">
+          교대근무 흐름 안에서 오늘 할 수 있는 작은 부업 시간을 현실적으로 나눕니다.
+        </p>
+        <div className="mt-4 rounded-lg bg-ink p-4 text-white">
+          <p className="text-xs font-bold text-amber">이번 주 부업 가능 시간</p>
+          <p className="mt-1 text-4xl font-extrabold">
+            {weeklySummary.sideHustleHoursMin}~{weeklySummary.sideHustleHoursMax}시간
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-200">
+            부업 집중 가능일 {weeklySummary.sideHustleFocusMin}~{weeklySummary.sideHustleFocusMax}일 기준
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <MetricCard label="오늘 가능 시간" value={result.sideHustleTime.label} helper={result.sideHustleTime.note} />
-          <MetricCard
-            label="이번 주 예상"
-            value={`${weeklySummary.sideHustleHoursMin}~${weeklySummary.sideHustleHoursMax}시간`}
-            helper={`부업 집중 가능일 ${weeklySummary.sideHustleFocusMin}~${weeklySummary.sideHustleFocusMax}일`}
-          />
+          <MetricCard label="오늘 추천 작업" value={result.sideHustleTime.workType} helper="수익 보장이 아닌 실행 시간 판단용입니다." />
         </div>
       </div>
 

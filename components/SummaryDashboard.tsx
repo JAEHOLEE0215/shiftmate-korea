@@ -48,6 +48,14 @@ export function SummaryDashboard({
         />
         <DashboardItem label="권장 모드" value={result.recommendedMode} helper="회복과 성장 균형 확인" />
       </div>
+      <div className="mt-4 rounded-lg bg-leaf/10 p-3">
+        <p className="break-keep text-sm font-bold leading-6 text-leaf">
+          오늘 루틴을 저장해두고 근무 전후에 다시 확인하세요.
+        </p>
+        <p className="mt-1 break-keep text-xs leading-5 text-slate-700">
+          휴대폰 홈 화면에 추가하면 근무 전 10초 만에 오늘 루틴을 확인할 수 있습니다.
+        </p>
+      </div>
     </section>
   );
 }

@@ -74,6 +74,7 @@ const heroBadges = [
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("today");
+  const [showWorkTimeSettings, setShowWorkTimeSettings] = useState(false);
   const [input, setInput] = useState<RoutineInput>(defaultInput);
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleType>(defaultWeeklySchedule);
   const [customTemplate, setCustomTemplate] = useState({
@@ -200,7 +201,7 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6 sm:py-8">
       <header className="pt-2">
         <p className="text-sm font-bold text-leaf">ShiftMate Korea</p>
         <h1 className="mt-1 text-3xl font-extrabold leading-10 text-ink">
@@ -244,6 +245,8 @@ export default function Home() {
           routineTypes={routineTypes}
           selectShift={selectShift}
           updateInput={updateInput}
+          showWorkTimeSettings={showWorkTimeSettings}
+          setShowWorkTimeSettings={setShowWorkTimeSettings}
         >
           <RoutineResult
             input={input}
@@ -297,6 +300,8 @@ function TodayRoutinePanel({
   routineTypes,
   selectShift,
   updateInput,
+  showWorkTimeSettings,
+  setShowWorkTimeSettings,
   children,
 }: {
   input: RoutineInput;
@@ -306,121 +311,178 @@ function TodayRoutinePanel({
   routineTypes: RoutineType[];
   selectShift: (value: ShiftType) => void;
   updateInput: <T extends keyof RoutineInput>(key: T, value: RoutineInput[T]) => void;
+  showWorkTimeSettings: boolean;
+  setShowWorkTimeSettings: (value: boolean) => void;
   children: ReactNode;
 }) {
+  const shouldShowWorkTimeSettings = input.shiftType === "custom" || showWorkTimeSettings;
+
   return (
     <div className="space-y-4">
-      <Section title="근무 타입 선택">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-          {shifts.map((shift) => (
-            <OptionButton
-              key={shift.value}
-              label={shift.label}
-              subLabel={shift.subLabel}
-              selected={input.shiftType === shift.value}
-              onSelect={() => selectShift(shift.value)}
-              ariaLabel={`${shift.label} ${shift.subLabel} 근무 타입 선택`}
-            />
-          ))}
+      <section className="rounded-lg border border-leaf/20 bg-white p-4 shadow-soft">
+        <p className="text-xs font-bold text-leaf">오늘 추천 루틴 요약</p>
+        <h2 className="mt-1 text-xl font-extrabold text-ink">
+          {input.shiftName || "선택 근무"} 기준으로 오늘 실행할 루틴을 만들었습니다.
+        </h2>
+        <p className="mt-2 break-keep text-sm leading-6 text-slate-700">
+          설정을 바꾸면 아래 결과 카드가 바로 업데이트됩니다.
+        </p>
+        <a
+          href="#result"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white"
+        >
+          오늘 루틴 보기
+        </a>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
+        <div className="space-y-4">
+          <Section title="근무 타입 선택">
+            <div className="grid grid-cols-2 gap-3">
+              {shifts.map((shift) => (
+                <OptionButton
+                  key={shift.value}
+                  label={shift.label}
+                  subLabel={shift.subLabel}
+                  selected={input.shiftType === shift.value}
+                  onSelect={() => selectShift(shift.value)}
+                  ariaLabel={`${shift.label} ${shift.subLabel} 근무 타입 선택`}
+                />
+              ))}
+            </div>
+          </Section>
+
+          {input.shiftType !== "custom" ? (
+            <button
+              type="button"
+              onClick={() => setShowWorkTimeSettings(!showWorkTimeSettings)}
+              className="min-h-11 w-full rounded-lg border border-ink/10 bg-white px-4 py-2 text-sm font-bold text-ink shadow-soft"
+              aria-expanded={showWorkTimeSettings}
+            >
+              {showWorkTimeSettings ? "근무시간 조정 닫기" : "근무시간 직접 조정하기"}
+            </button>
+          ) : null}
+
+          {shouldShowWorkTimeSettings ? (
+            <WorkTimeSettings input={input} updateInput={updateInput} />
+          ) : null}
+
+          <Section title="목표 선택">
+            <div className="grid grid-cols-2 gap-3">
+              {goals.map((goal) => (
+                <OptionButton
+                  key={goal}
+                  label={goal}
+                  selected={input.goal === goal}
+                  onSelect={(value) => updateInput("goal", value)}
+                  ariaLabel={`${goal} 목표 선택`}
+                />
+              ))}
+            </div>
+          </Section>
+
+          <Section title="루틴 종류 선택">
+            <div className="grid grid-cols-1 gap-3">
+              {routineTypes.map((routineType) => (
+                <OptionButton
+                  key={routineType}
+                  label={routineType}
+                  selected={input.routineType === routineType}
+                  onSelect={(value) => updateInput("routineType", value)}
+                  ariaLabel={`${routineType} 선택`}
+                />
+              ))}
+            </div>
+          </Section>
+
+          <Section title="근무 패턴 선택">
+            <div className="grid grid-cols-1 gap-3">
+              {patterns.map((pattern) => (
+                <OptionButton
+                  key={pattern.value}
+                  label={pattern.value}
+                  subLabel={pattern.subLabel}
+                  selected={input.pattern === pattern.value}
+                  onSelect={(value) => updateInput("pattern", value)}
+                  ariaLabel={`${pattern.value} 근무 패턴 선택`}
+                />
+              ))}
+            </div>
+            {input.pattern === "직접 입력" ? (
+              <input
+                value={input.customPattern}
+                onChange={(event) => updateInput("customPattern", event.target.value)}
+                placeholder="예: 4근2휴, 주주야야비휴"
+                aria-label="직접 입력 근무 패턴"
+                className="mt-3 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm outline-none focus:border-leaf"
+              />
+            ) : null}
+          </Section>
         </div>
-      </Section>
-      <Section title="회사별 근무시간 조정">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <label className="text-sm font-bold text-ink">
-            근무 이름
-            <input
-              value={input.shiftName}
-              onChange={(event) => updateInput("shiftName", event.target.value)}
-              placeholder="예: A조 주간"
-              aria-label="근무 이름"
-              disabled={input.shiftType === "Off"}
-              className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
-            />
-          </label>
-          <label className="text-sm font-bold text-ink">
-            출근 시간
-            <input
-              type="time"
-              value={input.shiftStart}
-              onChange={(event) => updateInput("shiftStart", event.target.value)}
-              aria-label="출근 시간"
-              disabled={input.shiftType === "Off"}
-              className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
-            />
-          </label>
-          <label className="text-sm font-bold text-ink">
-            퇴근 시간
-            <input
-              type="time"
-              value={input.shiftEnd}
-              onChange={(event) => updateInput("shiftEnd", event.target.value)}
-              aria-label="퇴근 시간"
-              disabled={input.shiftType === "Off"}
-              className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
-            />
-          </label>
-        </div>
-        <label className="mt-3 block text-sm font-bold text-ink">
-          근무 메모
+
+        <div>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function WorkTimeSettings({
+  input,
+  updateInput,
+}: {
+  input: RoutineInput;
+  updateInput: <T extends keyof RoutineInput>(key: T, value: RoutineInput[T]) => void;
+}) {
+  return (
+    <Section
+      title={input.shiftType === "custom" ? "직접 입력 근무시간" : "회사별 근무시간 조정"}
+      description="회사 근무시간이 기본값과 다를 때만 수정하세요."
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <label className="text-sm font-bold text-ink">
+          근무 이름
           <input
-            value={input.shiftMemo}
-            onChange={(event) => updateInput("shiftMemo", event.target.value)}
-            placeholder="예: 잔업 가능성 있음, 통근 40분"
-            aria-label="근무 메모"
-            className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf"
+            value={input.shiftName}
+            onChange={(event) => updateInput("shiftName", event.target.value)}
+            placeholder="예: A조 주간"
+            aria-label="근무 이름"
+            disabled={input.shiftType === "Off"}
+            className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
           />
         </label>
-      </Section>
-      <Section title="근무 패턴 선택">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {patterns.map((pattern) => (
-            <OptionButton
-              key={pattern.value}
-              label={pattern.value}
-              subLabel={pattern.subLabel}
-              selected={input.pattern === pattern.value}
-              onSelect={(value) => updateInput("pattern", value)}
-              ariaLabel={`${pattern.value} 근무 패턴 선택`}
-            />
-          ))}
-        </div>
-        {input.pattern === "직접 입력" ? (
+        <label className="text-sm font-bold text-ink">
+          출근 시간
           <input
-            value={input.customPattern}
-            onChange={(event) => updateInput("customPattern", event.target.value)}
-            placeholder="예: 4근2휴, 주주야야비휴"
-            aria-label="직접 입력 근무 패턴"
-            className="mt-3 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm outline-none focus:border-leaf"
+            type="time"
+            value={input.shiftStart}
+            onChange={(event) => updateInput("shiftStart", event.target.value)}
+            aria-label="출근 시간"
+            disabled={input.shiftType === "Off"}
+            className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
           />
-        ) : null}
-      </Section>
-      <Section title="목표 선택">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {goals.map((goal) => (
-            <OptionButton
-              key={goal}
-              label={goal}
-              selected={input.goal === goal}
-              onSelect={(value) => updateInput("goal", value)}
-              ariaLabel={`${goal} 목표 선택`}
-            />
-          ))}
-        </div>
-      </Section>
-      <Section title="루틴 종류 선택">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          {routineTypes.map((routineType) => (
-            <OptionButton
-              key={routineType}
-              label={routineType}
-              selected={input.routineType === routineType}
-              onSelect={(value) => updateInput("routineType", value)}
-              ariaLabel={`${routineType} 선택`}
-            />
-          ))}
-        </div>
-      </Section>
-      {children}
-    </div>
+        </label>
+        <label className="text-sm font-bold text-ink">
+          퇴근 시간
+          <input
+            type="time"
+            value={input.shiftEnd}
+            onChange={(event) => updateInput("shiftEnd", event.target.value)}
+            aria-label="퇴근 시간"
+            disabled={input.shiftType === "Off"}
+            className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf disabled:opacity-60"
+          />
+        </label>
+      </div>
+      <label className="mt-3 block text-sm font-bold text-ink">
+        근무 메모
+        <input
+          value={input.shiftMemo}
+          onChange={(event) => updateInput("shiftMemo", event.target.value)}
+          placeholder="예: 잔업 가능성 있음, 통근 40분"
+          aria-label="근무 메모"
+          className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf"
+        />
+      </label>
+    </Section>
   );
 }
