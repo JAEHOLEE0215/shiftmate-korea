@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { RoutineInput, RoutineResult as RoutineResultType } from "@/lib/routine";
 import {
-  formatHandoverMemo,
   formatRoutineText,
   getPatternText,
   getShiftText,
@@ -41,19 +39,6 @@ export function RoutineResult({
   isTodaySelected = true,
   weeklySummaryText,
 }: RoutineResultProps) {
-  const [memoCopied, setMemoCopied] = useState(false);
-
-  useEffect(() => {
-    if (!memoCopied) return;
-    const timer = window.setTimeout(() => setMemoCopied(false), 1600);
-    return () => window.clearTimeout(timer);
-  }, [memoCopied]);
-
-  async function copyHandoverMemo() {
-    await navigator.clipboard.writeText(formatHandoverMemo(result));
-    setMemoCopied(true);
-  }
-
   return (
     <section
       id="result"
@@ -172,25 +157,6 @@ export function RoutineResult({
             </li>
           ))}
         </ol>
-      </div>
-
-      <div className="mt-3 rounded-lg border border-slate-600/70 bg-slate-800/90 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-sm font-bold text-white">{result.handoverMemo.title}</h3>
-          <button
-            type="button"
-            onClick={copyHandoverMemo}
-            aria-label="인수인계 메모만 복사"
-            className="min-h-11 shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-950"
-          >
-            {memoCopied ? "복사됨" : "메모 복사"}
-          </button>
-        </div>
-        <div className="mt-2 space-y-2 text-sm leading-6 text-slate-200">
-          {result.handoverMemo.lines.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-        </div>
       </div>
 
       <div className="mt-3 rounded-lg border border-coral/70 bg-slate-800/90 p-3 text-sm leading-6">

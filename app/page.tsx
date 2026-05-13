@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { AppTabs, type AppTab } from "@/components/AppTabs";
+import { GuidePanel } from "@/components/GuidePanel";
+import { HandoverPanel } from "@/components/HandoverPanel";
 import { OptionButton } from "@/components/OptionButton";
 import { RoutineResult } from "@/components/RoutineResult";
 import { Section } from "@/components/Section";
+import { SideHustlePanel } from "@/components/SideHustlePanel";
+import { SummaryDashboard } from "@/components/SummaryDashboard";
 import { WeeklySchedule } from "@/components/WeeklySchedule";
 import {
   createInputForShift,
@@ -68,6 +73,7 @@ const heroBadges = [
 ];
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<AppTab>("today");
   const [input, setInput] = useState<RoutineInput>(defaultInput);
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleType>(defaultWeeklySchedule);
   const [customTemplate, setCustomTemplate] = useState({
@@ -201,7 +207,7 @@ export default function Home() {
           교대근무자를 위한 맞춤 루틴 플래너
         </h1>
         <p className="mt-3 break-keep text-sm leading-6 text-slate-700">
-          회사마다 다른 D/S/G/N/Off 근무표에 맞춰 수면, 운동, 공부, 부업 시간을 오늘 바로 실행 가능한 루틴으로 정리합니다.
+          회사마다 다른 근무표에 맞춰 수면, 회복, 운동, 공부, 부업 시간을 오늘 바로 실행 가능한 루틴으로 정리합니다.
         </p>
         <p className="mt-3 break-keep rounded-lg bg-white px-4 py-3 text-sm font-bold leading-6 text-ink shadow-soft">
           4조3교대뿐 아니라 3조2교대, 2교대, 주야비, 야간 고정, 직접 입력 근무표까지 고려합니다.
@@ -218,7 +224,93 @@ export default function Home() {
         </div>
       </header>
 
-      <Section title="1. 근무 타입 선택" description="오늘 또는 기준이 되는 근무를 고르세요.">
+      <SummaryDashboard
+        input={input}
+        result={result}
+        todayKey={todayDay.key}
+        selectedDayLabel={selectedDay.full}
+        selectedIsToday={selectedDayIndex === todayIndex}
+        weeklySchedule={weeklySchedule}
+      />
+
+      <AppTabs activeTab={activeTab} onChange={setActiveTab} />
+
+      {activeTab === "today" ? (
+        <TodayRoutinePanel
+          input={input}
+          shifts={shifts}
+          patterns={patterns}
+          goals={goals}
+          routineTypes={routineTypes}
+          selectShift={selectShift}
+          updateInput={updateInput}
+        >
+          <RoutineResult
+            input={input}
+            result={result}
+            onCopy={copyRoutine}
+            copied={copied}
+            selectedDayLabel={selectedDay.full}
+            isTodaySelected={selectedDayIndex === todayIndex}
+            weeklySummaryText={weeklySummaryText}
+          />
+        </TodayRoutinePanel>
+      ) : null}
+
+      {activeTab === "week" ? (
+        <WeeklySchedule
+          schedule={weeklySchedule}
+          summary={weeklySummary}
+          todayIndex={todayIndex}
+          selectedDayIndex={selectedDayIndex}
+          onChangeDay={changeWeeklyDay}
+          onSelectDay={selectWeeklyDay}
+          onReset={resetWeeklySchedule}
+          saved={weeklySaved}
+        />
+      ) : null}
+
+      {activeTab === "sideHustle" ? (
+        <SideHustlePanel result={result} weeklySummary={weeklySummary} />
+      ) : null}
+
+      {activeTab === "handover" ? (
+        <HandoverPanel input={input} result={result} weeklySummaryText={weeklySummaryText} />
+      ) : null}
+
+      {activeTab === "guide" ? <GuidePanel /> : null}
+
+      <footer className="pb-5 text-xs leading-5 text-slate-600">
+        <p>의학적 조언이 아닌 생활 루틴 참고용입니다.</p>
+        <p>수면 부족, 무리한 운동, 과로를 권장하지 않습니다.</p>
+        <p>무료 웹앱이며 로그인과 결제 기능은 없습니다.</p>
+      </footer>
+    </main>
+  );
+}
+
+function TodayRoutinePanel({
+  input,
+  shifts,
+  patterns,
+  goals,
+  routineTypes,
+  selectShift,
+  updateInput,
+  children,
+}: {
+  input: RoutineInput;
+  shifts: Array<{ value: ShiftType; label: ShiftType; subLabel: string }>;
+  patterns: Array<{ value: PatternType; subLabel: string }>;
+  goals: GoalType[];
+  routineTypes: RoutineType[];
+  selectShift: (value: ShiftType) => void;
+  updateInput: <T extends keyof RoutineInput>(key: T, value: RoutineInput[T]) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      <Section title="근무 타입 선택">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
           {shifts.map((shift) => (
             <OptionButton
@@ -232,32 +324,7 @@ export default function Home() {
           ))}
         </div>
       </Section>
-
-      <WeeklySchedule
-        schedule={weeklySchedule}
-        summary={weeklySummary}
-        todayIndex={todayIndex}
-        selectedDayIndex={selectedDayIndex}
-        onChangeDay={changeWeeklyDay}
-        onSelectDay={selectWeeklyDay}
-        onReset={resetWeeklySchedule}
-        saved={weeklySaved}
-      />
-
-      <div className="rounded-lg border border-leaf/20 bg-white p-4 shadow-soft">
-        <p className="text-sm font-bold text-ink">
-          오늘은 {todayDay.full} · 선택된 근무: {getShiftShortLabel(weeklySchedule[todayDay.key])}
-        </p>
-        <p className="mt-1 break-keep text-sm leading-6 text-slate-700">
-          선택 요일: {selectedDay.full}
-          {selectedDayIndex === todayIndex ? " · 오늘 기준 루틴입니다." : " · 선택한 요일 기준 루틴입니다."}
-        </p>
-      </div>
-
-      <Section
-        title="2. 회사별 근무시간 조정"
-        description="같은 D/S/G/N이라도 회사마다 시간이 다르므로 실제 출근·퇴근 시간을 입력하세요."
-      >
+      <Section title="회사별 근무시간 조정">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="text-sm font-bold text-ink">
             근무 이름
@@ -303,12 +370,8 @@ export default function Home() {
             className="mt-2 w-full rounded-lg border border-ink/10 bg-mist px-4 py-3 text-sm font-normal outline-none focus:border-leaf"
           />
         </label>
-        <p className="mt-3 break-keep text-xs leading-5 text-slate-600">
-          퇴근 시간이 출근 시간보다 빠르면 다음 날 퇴근으로 보고 야간근무 판단에 반영합니다.
-        </p>
       </Section>
-
-      <Section title="3. 근무 패턴 선택">
+      <Section title="근무 패턴 선택">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {patterns.map((pattern) => (
             <OptionButton
@@ -331,8 +394,7 @@ export default function Home() {
           />
         ) : null}
       </Section>
-
-      <Section title="4. 목표 선택">
+      <Section title="목표 선택">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {goals.map((goal) => (
             <OptionButton
@@ -345,8 +407,7 @@ export default function Home() {
           ))}
         </div>
       </Section>
-
-      <Section title="5. 루틴 생성">
+      <Section title="루틴 종류 선택">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           {routineTypes.map((routineType) => (
             <OptionButton
@@ -358,108 +419,8 @@ export default function Home() {
             />
           ))}
         </div>
-        <a
-          href="#result"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white"
-          aria-label="생성된 루틴 결과 카드로 이동"
-        >
-          결과 카드 바로 보기
-        </a>
       </Section>
-
-      <RoutineResult
-        input={input}
-        result={result}
-        onCopy={copyRoutine}
-        copied={copied}
-        selectedDayLabel={selectedDay.full}
-        isTodaySelected={selectedDayIndex === todayIndex}
-        weeklySummaryText={weeklySummaryText}
-      />
-
-      <InfoSections />
-
-      <footer className="pb-5 text-xs leading-5 text-slate-600">
-        <p>의학적 조언이 아닌 생활 루틴 참고용입니다.</p>
-        <p>수면 부족, 무리한 운동, 과로를 권장하지 않습니다.</p>
-        <p>무료 웹앱이며 로그인과 결제 기능은 없습니다.</p>
-      </footer>
-    </main>
-  );
-}
-
-function InfoSections() {
-  return (
-    <div className="space-y-4">
-      <Section title="교대근무 루틴이 어려운 이유">
-        <p className="break-keep text-sm leading-6 text-slate-700">
-          교대근무는 회사마다 근무 이름, 시작 시간, 종료 시간, 휴무 흐름이 다릅니다.
-          그래서 일반 일정 앱만으로는 수면, 식사, 운동, 공부, 부업 시간을 현실적으로 나누기 어렵습니다.
-        </p>
-      </Section>
-
-      <Section title="회사마다 다른 근무시간을 반영해야 하는 이유">
-        <p className="break-keep text-sm leading-6 text-slate-700">
-          같은 D, S, G, N 근무라도 출근과 퇴근 시간이 다르면 퇴근 후 회복 시간과 부업 가능 시간이 달라집니다.
-          ShiftMate Korea는 입력한 시간을 기준으로 야간 여부와 다음 날 퇴근 여부를 함께 봅니다.
-        </p>
-      </Section>
-
-      <Section title="야간근무 후에는 회복 블록이 먼저입니다">
-        <p className="break-keep text-sm leading-6 text-slate-700">
-          야간근무 후에는 무리한 운동이나 긴 부업보다 수면, 식사, 가벼운 정리부터 배치하는 편이 현실적입니다.
-          이 내용은 생활 루틴 참고용이며 개인 상황에 맞게 줄여서 사용하세요.
-        </p>
-      </Section>
-
-      <Section title="교대근무자가 부업 시간을 만들 때 주의할 점">
-        <p className="break-keep text-sm leading-6 text-slate-700">
-          피로도가 높은 날에는 긴 작업보다 짧은 메모, 아이디어 정리, 가벼운 수정 작업처럼 부담 낮은 작업을 추천합니다.
-          작은 결과물을 반복해서 쌓는 방식이 교대근무 일정에 더 잘 맞습니다.
-        </p>
-      </Section>
-
-      <Section title="자주 묻는 질문">
-        <div className="space-y-3">
-          <Faq
-            question="4조3교대가 아니어도 사용할 수 있나요?"
-            answer="네. 3조2교대, 2교대, 주야비, 주주야야비비, 고정 근무, 직접 입력 근무표까지 생활 루틴 참고용으로 사용할 수 있습니다."
-          />
-          <Faq
-            question="회사 근무시간이 다른데 직접 바꿀 수 있나요?"
-            answer="네. 근무 이름, 출근 시간, 퇴근 시간, 근무 메모를 직접 입력할 수 있습니다. 입력값은 이 기기의 localStorage에 저장됩니다."
-          />
-          <Faq
-            question="야간근무 후 바로 운동해도 되나요?"
-            answer="야간근무 후에는 긴 운동보다 수면, 식사, 가벼운 정리부터 배치하는 방식으로 안내합니다. 의학적 조언이 아닌 생활 루틴 참고용입니다."
-          />
-          <Faq
-            question="교대근무 중 부업 시간은 언제 잡는 게 좋나요?"
-            answer="피로도가 낮은 날은 퇴근 후 회복 뒤, 휴무일은 오후 집중 블록에 잡는 식으로 나눌 수 있습니다. 이 기준은 생활 루틴 참고용입니다."
-          />
-          <Faq
-            question="이 서비스는 수면 의학 조언인가요?"
-            answer="아닙니다. ShiftMate Korea는 의학적 조언이 아닌 생활 루틴 참고용 웹앱입니다."
-          />
-        </div>
-      </Section>
-
-      <Section title="휴대폰 홈 화면에 추가해서 사용하세요">
-        <ul className="space-y-2 text-sm leading-6 text-slate-700">
-          <li>iPhone Safari: 공유 버튼 → 홈 화면에 추가</li>
-          <li>Android Chrome: 메뉴 → 홈 화면에 추가</li>
-          <li>앱 설치 없이 웹앱처럼 빠르게 다시 열 수 있습니다.</li>
-        </ul>
-      </Section>
+      {children}
     </div>
-  );
-}
-
-function Faq({ question, answer }: { question: string; answer: string }) {
-  return (
-    <article className="rounded-lg bg-mist p-3">
-      <h3 className="text-sm font-bold text-ink">{question}</h3>
-      <p className="mt-1 break-keep text-sm leading-6 text-slate-700">{answer}</p>
-    </article>
   );
 }

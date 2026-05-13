@@ -56,13 +56,11 @@ export function WeeklySchedule({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {weekdayLabels.map((day, index) => {
           const shift = schedule[day.key];
           const isToday = index === todayIndex;
           const isSelected = index === selectedDayIndex;
-          const preview = createDayPreview(shift);
-
           return (
             <article
               key={day.key}
@@ -98,12 +96,6 @@ export function WeeklySchedule({
                 ))}
               </select>
 
-              <ul className="mt-3 space-y-1 text-xs leading-5 text-slate-700">
-                {preview.map((line) => (
-                  <li key={line}>- {line}</li>
-                ))}
-              </ul>
-
               <button
                 type="button"
                 onClick={() => onSelectDay(index)}
@@ -116,6 +108,8 @@ export function WeeklySchedule({
           );
         })}
       </div>
+
+      <SelectedDayDetail schedule={schedule} selectedDayIndex={selectedDayIndex} />
 
       <div className="mt-4 rounded-lg border border-ink/10 bg-mist p-3">
         <h3 className="text-sm font-bold text-ink">이번 주 루틴 요약</h3>
@@ -151,6 +145,31 @@ export function WeeklySchedule({
         </button>
       </div>
     </section>
+  );
+}
+
+function SelectedDayDetail({
+  schedule,
+  selectedDayIndex,
+}: {
+  schedule: WeeklyScheduleType;
+  selectedDayIndex: number;
+}) {
+  const selectedDay = weekdayLabels[selectedDayIndex];
+  const selectedShift = schedule[selectedDay.key];
+  const preview = createDayPreview(selectedShift);
+
+  return (
+    <div className="mt-4 rounded-lg border border-leaf/20 bg-leaf/10 p-3">
+      <h3 className="text-sm font-extrabold text-ink">
+        선택 요일 상세: {selectedDay.full} · {getShiftShortLabel(selectedShift)}
+      </h3>
+      <ul className="mt-2 space-y-1 text-sm leading-6 text-slate-700">
+        {preview.map((line) => (
+          <li key={line}>- {line}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
